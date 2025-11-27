@@ -45,6 +45,26 @@
   let ttsPlaying = false;
   let ttsPaused = false;
 
+  // Normalize extracted text for readability (remove line-break artifacts, hyphenation)
+  function normalizeText(raw) {
+    if (!raw) return '';
+    let t = String(raw);
+    // remove Windows CR
+    t = t.replace(/\r/g, '\n');
+    // fix hyphenation at line breaks: "exam-\nple" -> "example"
+    t = t.replace(/-\n/g, '');
+    // collapse multiple blank lines to a paragraph separator marker
+    t = t.replace(/\n\s*\n+/g, '__PAR__');
+    // replace remaining single newlines with spaces (line wraps)
+    t = t.replace(/\n+/g, ' ');
+    // restore paragraph separators
+    t = t.replace(/__PAR__/g, '\n\n');
+    // collapse multiple spaces
+    t = t.replace(/ {2,}/g, ' ');
+    // trim
+    return t.trim();
+  }
+
   fileInput.addEventListener('change', async (e) => {
     const f = e.target.files[0];
     lastFile = f;
@@ -70,8 +90,9 @@
     // immediate read for text files
     if (f.type === 'text/plain' || f.name.endsWith('.txt')) {
       const txt = await f.text();
-      extractedText.value = txt;
-      lastText = txt;
+      const normalized = normalizeText(txt);
+      extractedText.value = normalized;
+      lastText = normalized;
       // enable read option when a text file is loaded
       if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
     }
@@ -85,8 +106,9 @@
     if (lastFile.type.startsWith('image/')) {
       try {
         const { data } = await Tesseract.recognize(lastFile, 'eng');
-        extractedText.value = data.text || '';
-        lastText = data.text || '';
+        const normalized = normalizeText(data.text || '');
+        extractedText.value = normalized;
+        lastText = normalized;
         announce('Text extracted from image.');
         if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
         makeSummary(lastText);
@@ -144,8 +166,9 @@
           // announce page completion
           updateProgress(`Completed page ${p} of ${pdf.numPages}.`);
         }
-        extractedText.value = fullText;
-        lastText = fullText;
+        const normalized = normalizeText(fullText);
+        extractedText.value = normalized;
+        lastText = normalized;
         announce('Text extracted from PDF. Read option is now available.');
         if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
         makeSummary(lastText);
@@ -158,8 +181,9 @@
       }
     } else {
       const txt = await lastFile.text();
-      extractedText.value = txt;
-      lastText = txt;
+      const normalized = normalizeText(txt);
+      extractedText.value = normalized;
+      lastText = normalized;
       announce('Text extracted from file. Read option is now available.');
       if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
       makeSummary(lastText);
