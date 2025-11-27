@@ -1,0 +1,420 @@
+// VisualCogn - client-side accessibility helpers
+(() => {
+  const announce = (text, priority = 'polite') => {
+    // ARIA live region
+    const live = document.getElementById('file-info');
+    live.textContent = text;
+    // Speech (Talkback)
+    if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(text);
+      const speed = parseFloat(document.getElementById('speed').value) || 1;
+      u.rate = speed;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    }
+  };
+
+  // Announce site name on load
+  window.addEventListener('load', () => {
+    const announceText = 'Welcome to VisualCogn, accessible tools for visually and cognitively impaired users.';
+    // slight delay for voices to load
+    setTimeout(() => announce(announceText), 400);
+  });
+
+  // Elements
+  const fileInput = document.getElementById('file-input');
+  const btnExtract = document.getElementById('btn-extract');
+  const btnSpeak = document.getElementById('btn-speak');
+  const btnDownload = document.getElementById('btn-download');
+  const btnIdentify = document.getElementById('btn-identify');
+  const btnRecord = document.getElementById('btn-record');
+  const btnHelp = document.getElementById('btn-help');
+  const extractedText = document.getElementById('extracted-text');
+  const imagePreview = document.getElementById('image-preview');
+  const brailleOutput = document.getElementById('braille-output');
+  const summaryOutput = document.getElementById('summary-output');
+  const progressEl = document.getElementById('progress');
+
+  let lastFile = null;
+  let lastText = '';
+
+  fileInput.addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    lastFile = f;
+    brailleOutput.textContent = '';
+    summaryOutput.textContent = '';
+    imagePreview.innerHTML = '';
+
+    if (!f) return;
+    announce(`File ${f.name} selected. Press E to extract text.`);
+    // clear previous progress and extracted text
+    if (progressEl) { progressEl.textContent = ''; progressEl.classList.add('sr-only'); }
+    if (extractedText) extractedText.value = '';
+
+    // show preview for images
+    if (f.type.startsWith('image/')) {
+      const url = URL.createObjectURL(f);
+      const img = document.createElement('img');
+      img.alt = f.name;
+      img.src = url;
+      imagePreview.appendChild(img);
+    }
+
+    // immediate read for text files
+    if (f.type === 'text/plain' || f.name.endsWith('.txt')) {
+      const txt = await f.text();
+      extractedText.value = txt;
+      lastText = txt;
+      // enable read option when a text file is loaded
+      if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+    }
+  });
+
+  // Simple extraction: text files or OCR for images
+  btnExtract.addEventListener('click', async () => {
+    if (!lastFile) { announce('No file selected. Use Upload or press U.'); return; }
+    announce('Extracting text now. This may take a few seconds.');
+
+    if (lastFile.type.startsWith('image/')) {
+      try {
+        const { data } = await Tesseract.recognize(lastFile, 'eng');
+        extractedText.value = data.text || '';
+        lastText = data.text || '';
+        announce('Text extracted from image.');
+        if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+        makeSummary(lastText);
+      } catch (err) {
+        console.error(err);
+        announce('OCR failed.');
+      }
+    } else if (lastFile.type === 'application/pdf' || (lastFile.name && lastFile.name.toLowerCase().endsWith('.pdf'))) {
+      try {
+        announce('Extracting text from PDF. This may take a moment.');
+        const arrayBuffer = await lastFile.arrayBuffer();
+        // pdfjsLib is provided by pdf.js include
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let p = 1; p <= pdf.numPages; p++) {
+          // eslint-disable-next-line no-await-in-loop
+          const page = await pdf.getPage(p);
+          // try to extract text content first
+          // eslint-disable-next-line no-await-in-loop
+          const content = await page.getTextContent();
+          const strings = content.items.map(i => i.str);
+          let pageText = strings.join(' ').trim();
+
+          // If the page has little or no selectable text, render and OCR it
+          if (!pageText || pageText.length < 50) {
+            updateProgress(`Page ${p} of ${pdf.numPages}: scanned page detected — running OCR.`);
+            try {
+              const viewport = page.getViewport({ scale: 2.0 });
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.floor(viewport.width);
+              canvas.height = Math.floor(viewport.height);
+              const ctx = canvas.getContext('2d');
+              // eslint-disable-next-line no-await-in-loop
+              await page.render({ canvasContext: ctx, viewport }).promise;
+
+              // show a small preview for the first page
+              if (p === 1) {
+                const img = document.createElement('img');
+                img.src = canvas.toDataURL('image/png');
+                img.alt = `PDF page ${p}`;
+                imagePreview.appendChild(img);
+              }
+
+              // run Tesseract on the rendered canvas
+              // eslint-disable-next-line no-await-in-loop
+              const { data } = await Tesseract.recognize(canvas, 'eng');
+              const ocrText = data && data.text ? data.text : '';
+              pageText = (pageText + ' ' + ocrText).trim();
+            } catch (err) {
+              console.error('Scanned page OCR failed', err);
+            }
+          }
+
+          fullText += pageText + '\n';
+          // announce page completion
+          updateProgress(`Completed page ${p} of ${pdf.numPages}.`);
+        }
+        extractedText.value = fullText;
+        lastText = fullText;
+        announce('Text extracted from PDF. Read option is now available.');
+        if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+        makeSummary(lastText);
+        if (progressEl) { progressEl.textContent = 'Extraction complete.'; progressEl.classList.add('sr-only'); }
+        extractedText.focus && extractedText.focus();
+      } catch (err) {
+        console.error(err);
+        announce('PDF extraction failed.');
+        if (progressEl) { progressEl.textContent = 'Extraction failed.'; }
+      }
+    } else {
+      const txt = await lastFile.text();
+      extractedText.value = txt;
+      lastText = txt;
+      announce('Text extracted from file. Read option is now available.');
+      if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+      makeSummary(lastText);
+    }
+  });
+
+  // Read aloud
+  btnSpeak.addEventListener('click', () => {
+    const text = extractedText.value || lastText;
+    if (!text) { announce('No text available. Please extract text first.'); return; }
+    speakText(text);
+  });
+
+  function speakText(text) {
+    if (!('speechSynthesis' in window)) { announce('Speech not supported in this browser.'); return; }
+    const speed = parseFloat(document.getElementById('speed').value) || 1;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = speed;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+    announce('Reading text aloud. Use plus or minus to change speed.');
+  }
+
+  // Speed controls
+  document.getElementById('speed-decrease').addEventListener('click', () => changeSpeed(-0.5));
+  document.getElementById('speed-increase').addEventListener('click', () => changeSpeed(0.5));
+  function changeSpeed(delta){
+    const inp = document.getElementById('speed');
+    let v = parseFloat(inp.value) || 1;
+    v = Math.min(2, Math.max(0.5, v + delta));
+    inp.value = v.toFixed(1);
+    announce(`Speech speed set to ${v}x.`);
+  }
+
+  // Download audio: we'll attempt to use meSpeak to export WAV for download (browser-only fallback)
+  btnDownload.addEventListener('click', async () => {
+    const text = extractedText.value || lastText;
+    if (!text) { announce('No text to convert to audio.'); return; }
+    announce('Generating downloadable audio — please wait.');
+
+    // meSpeak init and voice load
+    try {
+      if (!meSpeak.isConfigLoaded) {
+        await new Promise((res) => {
+          meSpeak.loadConfig('https://unpkg.com/mespeak/mespeak_config.json', res);
+        });
+        meSpeak.isConfigLoaded = true;
+      }
+      if (!meSpeak.voiceLoaded) {
+        await new Promise((res) => meSpeak.loadVoice('https://unpkg.com/mespeak/voices/en/en-us.json', res));
+        meSpeak.voiceLoaded = true;
+      }
+
+      const speedVal = parseFloat(document.getElementById('speed').value) || 1;
+      const opts = { amplitude: 100, wordgap: 0, pitch: 50, speed: Math.round(175 / speedVal) };
+
+      // meSpeak can generate WAV as a base64 string
+      const wavBase64 = meSpeak.speak(text, Object.assign({}, opts, { rawdata: 'base64' }));
+      if (!wavBase64) {
+        announce('Audio generation failed in this browser.');
+        return;
+      }
+
+      // Create WAV Blob (fallback and for MP3 encode)
+      const wavBuffer = base64ToArrayBuffer(wavBase64);
+      const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+
+      // Try to produce MP3 using lamejs if available
+      if (window.lamejs && typeof window.lamejs.Mp3Encoder === 'function') {
+        try {
+          const mp3Blob = wavToMp3Blob(wavBuffer);
+          if (mp3Blob) {
+            const url = URL.createObjectURL(mp3Blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'visualcogn_audio.mp3'; a.click();
+            announce('MP3 download ready.');
+            return;
+          }
+        } catch (err) {
+          console.error('MP3 encoding failed', err);
+        }
+      }
+
+      // Fallback: download WAV
+      const url = URL.createObjectURL(wavBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'visualcogn_audio.wav'; a.click();
+      announce('Download ready as WAV.');
+
+    } catch (err) {
+      console.error(err);
+      announce('Audio generation encountered an error.');
+    }
+  });
+
+  // Helpers for audio encoding
+  function base64ToArrayBuffer(base64) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function findDataOffset(dv) {
+    // Search for 'data' chunk
+    let offset = 12; // after RIFF header
+    while (offset < dv.byteLength) {
+      const chunkId = String.fromCharCode(dv.getUint8(offset), dv.getUint8(offset+1), dv.getUint8(offset+2), dv.getUint8(offset+3));
+      const chunkSize = dv.getUint32(offset+4, true);
+      if (chunkId === 'data') return offset + 8;
+      offset += (8 + chunkSize);
+    }
+    return 44; // default
+  }
+
+  function wavToMp3Blob(arrayBuffer) {
+    const dv = new DataView(arrayBuffer);
+    const numChannels = dv.getUint16(22, true);
+    const sampleRate = dv.getUint32(24, true);
+    const bitsPerSample = dv.getUint16(34, true);
+    const dataOffset = findDataOffset(dv);
+    const pcmData = new Int16Array(arrayBuffer, dataOffset);
+
+    let left = null; let right = null;
+    if (numChannels === 2) {
+      left = new Int16Array(pcmData.length / 2);
+      right = new Int16Array(pcmData.length / 2);
+      for (let i = 0, j = 0; i < pcmData.length; i += 2, j++) {
+        left[j] = pcmData[i];
+        right[j] = pcmData[i+1];
+      }
+    } else {
+      left = pcmData;
+    }
+
+    const Mp3Encoder = window.lamejs.Mp3Encoder;
+    const mp3encoder = new Mp3Encoder(numChannels, sampleRate, 128);
+    const mp3Data = [];
+    const samplesPerFrame = 1152;
+
+    if (numChannels === 2) {
+      let i = 0;
+      while (i < left.length) {
+        const leftChunk = left.subarray(i, i + samplesPerFrame);
+        const rightChunk = right.subarray(i, i + samplesPerFrame);
+        const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+        if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf));
+        i += samplesPerFrame;
+      }
+    } else {
+      let i = 0;
+      while (i < left.length) {
+        const monoChunk = left.subarray(i, i + samplesPerFrame);
+        const mp3buf = mp3encoder.encodeBuffer(monoChunk);
+        if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf));
+        i += samplesPerFrame;
+      }
+    }
+
+    const mp3buf = mp3encoder.flush();
+    if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf));
+
+    const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+    return blob;
+  }
+
+  // Image identification using ml5 MobileNet
+  let classifier = null;
+  ml5.imageClassifier('MobileNet').then(c => { classifier = c; });
+
+  // Progress helper (visible to screen readers)
+  function updateProgress(msg) {
+    if (progressEl) {
+      progressEl.textContent = msg;
+      progressEl.classList.remove('sr-only');
+    }
+    try { announce(msg); } catch (e) { /* ignore */ }
+  }
+
+  btnIdentify.addEventListener('click', async () => {
+    if (!lastFile || !lastFile.type.startsWith('image/')) { announce('Please upload an image first.'); return; }
+    announce('Identifying image.');
+    const img = imagePreview.querySelector('img');
+    if (!img) { announce('No image to identify.'); return; }
+    if (!classifier) { announce('Image model is loading — try again soon.'); return; }
+    const results = await classifier.classify(img);
+    const top = results && results[0] ? results[0].label : 'unknown';
+    announce(`I think this is ${top}.`);
+  });
+
+  // Speech -> Braille (simple speech recognition to text, then map to Braille Unicode)
+  btnRecord.addEventListener('click', async () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      announce('Speech recognition not supported in this browser.');
+      return;
+    }
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SpeechRec();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    announce('Recording. Please speak now.');
+    rec.start();
+    rec.onresult = (ev) => {
+      const text = ev.results[0][0].transcript;
+      announce(`You said: ${text}`);
+      const braille = toBraille(text);
+      brailleOutput.textContent = 'Braille: ' + braille;
+    };
+    rec.onerror = (e) => { console.error(e); announce('Recording error'); };
+  });
+
+  // Help / Shortcuts
+  btnHelp.addEventListener('click', () => showHelp());
+
+  function showHelp() {
+    const help = `Shortcuts: U upload, E extract text, S read aloud, D download audio (WAV), I identify image, R record speech to braille, H help. Use plus or minus to change speech speed.`;
+    announce(help);
+    alert(help);
+  }
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const k = e.key.toLowerCase();
+    if (k === 'u') { document.getElementById('btn-upload').focus(); fileInput.click(); }
+    if (k === 'e') btnExtract.click();
+    if (k === 's') {
+      if (btnSpeak && btnSpeak.disabled) {
+        announce('No extracted text to read. Press E to extract text first.');
+      } else {
+        btnSpeak.click();
+      }
+    }
+    if (k === 'd') btnDownload.click();
+    if (k === 'i') btnIdentify.click();
+    if (k === 'r') btnRecord.click();
+    if (k === 'h') btnHelp.click();
+    if (k === '+') changeSpeed(0.5);
+    if (k === '-') changeSpeed(-0.5);
+    // numeric speed keys: 1 -> 1.0, 2 -> 1.5, 3 -> 2.0
+    if (k === '1') { document.getElementById('speed').value = '1'; announce('Speed 1x'); }
+    if (k === '2') { document.getElementById('speed').value = '1.5'; announce('Speed 1.5x'); }
+    if (k === '3') { document.getElementById('speed').value = '2'; announce('Speed 2x'); }
+  });
+
+  // Braille mapping (basic a-z mapping to Unicode braille patterns)
+  const brailleMap = {
+    a:'⠁',b:'⠃',c:'⠉',d:'⠙',e:'⠑',f:'⠋',g:'⠛',h:'⠓',i:'⠊',j:'⠚',
+    k:'⠅',l:'⠇',m:'⠍',n:'⠝',o:'⠕',p:'⠏',q:'⠟',r:'⠗',s:'⠎',t:'⠞',
+    u:'⠥',v:'⠧',w:'⠺',x:'⠭',y:'⠽',z:'⠵', ' ':' '
+  };
+  function toBraille(txt){
+    return txt.toLowerCase().split('').map(ch => brailleMap[ch] || ch).join('');
+  }
+
+  // Simple cognitive summary: pick the first 2-3 sentences
+  function makeSummary(text){
+    if (!text) return;
+    const sents = text.match(/[^\.\!\?]+[\.\!\?]+/g) || [text];
+    const take = sents.slice(0,3).join(' ').trim();
+    summaryOutput.textContent = 'Simple summary: ' + (take || text.slice(0,200));
+  }
+
+})();

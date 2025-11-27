@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VisualCogn — Accessible</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="VisualCogn: accessibility tools for visually impaired and cognitive users.">
+</head>
+<body>
+  <header>
+    <h1 id="site-title">VisualCogn</h1>
+    <p class="sr-only" id="site-announcement">Welcome to VisualCogn — an accessibility tool for visually impaired and cognitive users.</p>
+  </header>
+
+  <main>
+    <section id="controls" aria-label="Main controls">
+      <div class="big-buttons">
+        <label class="btn" id="btn-upload" for="file-input" tabindex="0" aria-keyshortcuts="U">
+          <span class="icon" aria-hidden="true">📁</span>
+          <span class="label">Upload File (U)</span>
+          <input id="file-input" type="file" accept="*/*" aria-label="Upload a file" hidden>
+        </label>
+
+        <button class="btn" id="btn-extract" aria-keyshortcuts="E">
+          <span class="icon" aria-hidden="true">📝</span>
+          <span class="label">Extract Text (E)</span>
+        </button>
+        <button class="btn" id="btn-speak" aria-keyshortcuts="S" disabled>
+          <span class="icon" aria-hidden="true">🔊</span>
+          <span class="label">Read Aloud (S)</span>
+        </button>
+        <button class="btn" id="btn-download" aria-keyshortcuts="D">
+          <span class="icon" aria-hidden="true">⬇️</span>
+          <span class="label">Download Audio (D)</span>
+        </button>
+        <button class="btn" id="btn-identify" aria-keyshortcuts="I">
+          <span class="icon" aria-hidden="true">🖼️</span>
+          <span class="label">Identify Image (I)</span>
+        </button>
+        <button class="btn" id="btn-record" aria-keyshortcuts="R">
+          <span class="icon" aria-hidden="true">🎤</span>
+          <span class="label">Speech→Braille (R)</span>
+        </button>
+        <button class="btn" id="btn-help" aria-keyshortcuts="H">
+          <span class="icon" aria-hidden="true">❓</span>
+          <span class="label">Help / Shortcuts (H)</span>
+        </button>
+      </div>
+
+      <div id="speed-control" aria-label="Speech speed control">
+        <label for="speed">Speed:</label>
+        <button id="speed-decrease" class="small">−</button>
+        <input id="speed" type="number" step="0.5" min="0.5" max="2" value="1" aria-label="Speech speed">
+        <button id="speed-increase" class="small">+</button>
+      </div>
+    </section>
+
+    <section id="workspace" aria-label="Workspace">
+      <h2>Workspace</h2>
+      <div id="file-info" role="status" aria-live="polite"></div>
+      <div id="progress" role="status" aria-live="assertive" class="sr-only"></div>
+      <div class="extracted-header" aria-hidden="true"><span class="icon">📝</span><span class="label">Extracted Text</span></div>
+      <textarea id="extracted-text" placeholder="Extracted text will appear here" aria-label="Extracted text" aria-describedby="extract-hint"></textarea>
+      <div id="extract-hint" class="hint">Press S to read aloud the extracted text, or use the Read button.</div>
+
+      <div id="image-preview"></div>
+
+      <div id="braille-output" aria-live="polite"></div>
+      <div id="summary-output" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>VisualCogn — Accessible demo. Notes: some features depend on browser APIs.</small>
+  </footer>
+
+  <!-- Libraries -->
+  <!-- pdf.js for PDF text extraction -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@latest/dist/ml5.min.js"></script>
+  <!-- meSpeak for fallback audio generation (WAV) -->
+  <script src="https://unpkg.com/mespeak/mespeak.min.js"></script>
+  <!-- lamejs for MP3 encoding -->
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
