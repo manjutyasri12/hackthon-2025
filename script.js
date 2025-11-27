@@ -297,34 +297,40 @@
     announce(`Speech speed set to ${v}x.`);
   }
 
-  // Download audio: record TTS chunks and download as WAV
+  // Download audio: export MP3 or guide user to convert
   btnDownload.addEventListener('click', async () => {
     const text = extractedText.value || lastText;
     if (!text) { announce('No text to convert to audio.'); return; }
-    announce('Generating downloadable audio. This may take a moment.');
+    
+    announce('Opening download options.');
+    
+    // Show a dialog with options
+    const choice = prompt(
+      'Choose download option:\n1. Download as TXT (for device TTS)\n2. Copy to online TTS converter (Google Translate, Natural Reader, etc.)\n\nEnter 1 or 2:',
+      '1'
+    );
 
-    try {
-      // Use Web Audio API to record TTS
-      const chunks = splitToChunks(text);
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const offlineCtx = new OfflineAudioContext(1, audioContext.sampleRate * 30, audioContext.sampleRate);
-      
-      // For simplicity, we'll create a basic WAV from silence and prompt download
-      // Real implementation would record actual speech, which is complex in browsers
-      announce('Downloading as text file. Open the downloaded file and use your device text-to-speech.');
-      
-      // Alternative: Download extracted text as .txt for user to use with system TTS
+    if (choice === '1') {
+      // Download as text
       const txtBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(txtBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'visualcogn_text.txt';
       a.click();
-      announce('Text file downloaded. You can use it with your device text-to-speech reader.');
-
-    } catch (err) {
-      console.error(err);
-      announce('Download failed. Try right-clicking the text area to copy instead.');
+      URL.revokeObjectURL(url);
+      announce('Text file downloaded. Use Google Translate, Natural Reader, or your device TTS to create MP3.');
+    } else if (choice === '2') {
+      // Copy to clipboard for online converters
+      try {
+        await navigator.clipboard.writeText(text);
+        announce('Text copied to clipboard. Paste it into Google Translate, Natural Reader, or Voiceovers.ai to generate MP3.');
+        alert('Text copied to clipboard!\nPaste into:\n- Google Translate (select audio icon)\n- Natural Reader (naturalreader.com)\n- Voiceovers.ai\n- ReadSpeaker or similar services');
+      } catch (err) {
+        announce('Clipboard copy failed. Please download as text instead.');
+      }
+    } else {
+      announce('Download cancelled.');
     }
   });
 
