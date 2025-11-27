@@ -25,6 +25,8 @@
   const fileInput = document.getElementById('file-input');
   const btnExtract = document.getElementById('btn-extract');
   const btnSpeak = document.getElementById('btn-speak');
+  const btnPause = document.getElementById('btn-pause');
+  const btnStop = document.getElementById('btn-stop');
   const btnDownload = document.getElementById('btn-download');
   const btnIdentify = document.getElementById('btn-identify');
   const btnRecord = document.getElementById('btn-record');
@@ -37,6 +39,11 @@
 
   let lastFile = null;
   let lastText = '';
+  // TTS state
+  let ttsQueue = [];
+  let ttsIndex = 0;
+  let ttsPlaying = false;
+  let ttsPaused = false;
 
   fileInput.addEventListener('change', async (e) => {
     const f = e.target.files[0];
@@ -163,17 +170,96 @@
   btnSpeak.addEventListener('click', () => {
     const text = extractedText.value || lastText;
     if (!text) { announce('No text available. Please extract text first.'); return; }
-    speakText(text);
+    startTTS(text);
   });
 
-  function speakText(text) {
+  // Pause control
+  btnPause && btnPause.addEventListener('click', () => {
+    if (!ttsPlaying) return;
+    if (!ttsPaused) {
+      speechSynthesis.pause();
+      ttsPaused = true;
+      announce('Paused reading.');
+      btnPause.classList.add('active');
+    } else {
+      speechSynthesis.resume();
+      ttsPaused = false;
+      announce('Resumed reading.');
+      btnPause.classList.remove('active');
+    }
+  });
+
+  // Stop control
+  btnStop && btnStop.addEventListener('click', () => {
+    stopTTS();
+  });
+
+  function enableTTSControls(enabled) {
+    if (btnSpeak) btnSpeak.disabled = !enabled;
+    if (btnPause) btnPause.disabled = !enabled;
+    if (btnStop) btnStop.disabled = !enabled;
+  }
+
+  function splitToChunks(text, maxLen = 1400) {
+    // split into sentences then assemble into chunks under maxLen
+    const sents = text.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [text];
+    const chunks = [];
+    let cur = '';
+    for (const s of sents) {
+      if ((cur + ' ' + s).trim().length > maxLen) {
+        if (cur.trim()) chunks.push(cur.trim());
+        cur = s;
+      } else {
+        cur = (cur + ' ' + s).trim();
+      }
+    }
+    if (cur.trim()) chunks.push(cur.trim());
+    return chunks;
+  }
+
+  function startTTS(text) {
     if (!('speechSynthesis' in window)) { announce('Speech not supported in this browser.'); return; }
-    const speed = parseFloat(document.getElementById('speed').value) || 1;
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = speed;
-    speechSynthesis.cancel();
+    // stop any existing TTS
+    stopTTS();
+    ttsQueue = splitToChunks(text);
+    ttsIndex = 0;
+    ttsPlaying = true;
+    ttsPaused = false;
+    enableTTSControls(true);
+    announce('Starting reading.');
+    playNextChunk();
+  }
+
+  function playNextChunk() {
+    if (!ttsPlaying) return;
+    if (ttsIndex >= ttsQueue.length) {
+      // finished
+      ttsPlaying = false;
+      enableTTSControls(false);
+      announce('Finished reading.');
+      return;
+    }
+    const chunk = ttsQueue[ttsIndex];
+    const u = new SpeechSynthesisUtterance(chunk);
+    u.rate = parseFloat(document.getElementById('speed').value) || 1;
+    u.onend = () => {
+      ttsIndex += 1;
+      // small delay to allow pause/resume
+      setTimeout(() => { if (!ttsPaused) playNextChunk(); }, 50);
+    };
+    u.onerror = (e) => { console.error('TTS error', e); ttsPlaying = false; enableTTSControls(false); };
     speechSynthesis.speak(u);
-    announce('Reading text aloud. Use plus or minus to change speed.');
+  }
+
+  function stopTTS() {
+    speechSynthesis.cancel();
+    ttsPlaying = false;
+    ttsPaused = false;
+    ttsQueue = [];
+    ttsIndex = 0;
+    enableTTSControls(false);
+    announce('Stopped reading.');
+    if (btnPause) btnPause.classList.remove('active');
   }
 
   // Speed controls
@@ -390,6 +476,13 @@
     if (k === 'd') btnDownload.click();
     if (k === 'i') btnIdentify.click();
     if (k === 'r') btnRecord.click();
+    if (k === 'p') {
+      // pause / resume
+      if (btnPause && !btnPause.disabled) btnPause.click();
+    }
+    if (k === 't') {
+      if (btnStop && !btnStop.disabled) btnStop.click();
+    }
     if (k === 'h') btnHelp.click();
     if (k === '+') changeSpeed(0.5);
     if (k === '-') changeSpeed(-0.5);
@@ -410,11 +503,57 @@
   }
 
   // Simple cognitive summary: pick the first 2-3 sentences
+  // Improved extractive summarizer and summary table
   function makeSummary(text){
     if (!text) return;
-    const sents = text.match(/[^\.\!\?]+[\.\!\?]+/g) || [text];
-    const take = sents.slice(0,3).join(' ').trim();
-    summaryOutput.textContent = 'Simple summary: ' + (take || text.slice(0,200));
+    const summary = summarizeText(text, 5);
+    summaryOutput.textContent = summary.join(' ');
+    renderSummaryTable(text, summary);
   }
+
+  function summarizeText(text, maxSentences = 5){
+    // Basic extractive summarization using term frequency scoring
+    const lower = text.replace(/\s+/g, ' ').trim();
+    const sents = lower.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [lower];
+    const words = lower.toLowerCase().match(/\b[\w']+\b/g) || [];
+    const stop = new Set(['the','and','to','of','a','in','is','it','that','for','on','with','as','are','this','be','by','an','or','from','at','was','which']);
+    const freq = {};
+    for (const w of words) {
+      if (stop.has(w)) continue;
+      freq[w] = (freq[w] || 0) + 1;
+    }
+
+    const scores = sents.map(s => {
+      const ws = s.toLowerCase().match(/\b[\w']+\b/g) || [];
+      let score = 0;
+      for (const w of ws) if (freq[w]) score += freq[w];
+      return { s: s.trim(), score };
+    });
+
+    scores.sort((a,b) => b.score - a.score);
+    const top = scores.slice(0, Math.min(maxSentences, scores.length)).sort((a,b) => lower.indexOf(a.s) - lower.indexOf(b.s));
+    return top.map(t => capitalize(t.s));
+  }
+
+  function capitalize(str){ return str.charAt(0).toUpperCase() + str.slice(1); }
+
+  function renderSummaryTable(originalText, summaryArray){
+    const table = document.getElementById('summary-table');
+    if (!table) return;
+    const words = originalText.match(/\b[\w']+\b/g) || [];
+    const wordCount = words.length;
+    const sentences = originalText.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [];
+    const readingMinutes = Math.max(1, Math.round((wordCount / 180) * 10) / 10);
+
+    table.innerHTML = `
+      <h3>Summary (extractive)</h3>
+      <div><strong>Words:</strong> ${wordCount} &nbsp; <strong>Sentences:</strong> ${sentences.length} &nbsp; <strong>Estimated reading (min):</strong> ${readingMinutes}</div>
+      <ol>
+        ${summaryArray.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+      </ol>
+    `;
+  }
+
+  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 })();

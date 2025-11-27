@@ -25,6 +25,15 @@ h1{font-size:28px;margin:0}
 .hint{margin-top:8px;background:#fff7e6;border-left:4px solid #ffd27a;padding:8px;border-radius:4px}
 .sr-progress{position:relative}
 .progress-visible{display:block;padding:6px 8px;background:#eef6ff;border-radius:6px;margin-top:8px}
+.summary-table{margin-top:12px;border:1px solid #e1e6f5;background:#fff;padding:10px;border-radius:6px}
+.summary-table h3{margin:0 0 8px 0}
+.controls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:start}
+.big-buttons{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}
+.control-column{background:var(--card);padding:12px;border-radius:10px;border:1px solid #e6e9f0}
+.workspace-grid{display:grid;grid-template-columns:1fr 360px;gap:16px;align-items:start}
+#workspace{padding:18px}
+#image-preview{max-width:100%;}
+.textarea-card{background:var(--card);padding:10px;border-radius:8px;border:1px solid #e6e9f0}
 footer{margin-top:18px;color:#555}
 
 @media (max-width:600px){.big-buttons{flex-direction:column}.btn{width:100%}}

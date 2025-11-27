@@ -28,7 +28,15 @@
         </button>
         <button class="btn" id="btn-speak" aria-keyshortcuts="S" disabled>
           <span class="icon" aria-hidden="true">🔊</span>
-          <span class="label">Read Aloud (S)</span>
+          <span class="label">Play (S)</span>
+        </button>
+        <button class="btn" id="btn-pause" aria-keyshortcuts="P" disabled>
+          <span class="icon" aria-hidden="true">⏸️</span>
+          <span class="label">Pause (P)</span>
+        </button>
+        <button class="btn" id="btn-stop" aria-keyshortcuts="T" disabled>
+          <span class="icon" aria-hidden="true">⏹️</span>
+          <span class="label">Stop (T)</span>
         </button>
         <button class="btn" id="btn-download" aria-keyshortcuts="D">
           <span class="icon" aria-hidden="true">⬇️</span>
@@ -68,6 +76,7 @@
 
       <div id="braille-output" aria-live="polite"></div>
       <div id="summary-output" aria-live="polite"></div>
+      <div id="summary-table" class="summary-table" aria-live="polite"></div>
     </section>
   </main>
 
