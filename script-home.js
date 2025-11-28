@@ -212,6 +212,10 @@
   window.addEventListener('load', () => {
     setTimeout(() => {
       const loadHelp = `Welcome to VisualCogn, an accessible document reader designed for visually impaired and cognitive users. You are on the upload page. Here are your available shortcuts: Press U to upload a document file. After uploading, press E to extract text from the document. Press I to identify an image. Press R to convert your spoken voice to braille. Press H to hear all available shortcuts on this page.`;
+      // Also set the visible instruction text so screen readers and non-TTS users know the upload shortcut immediately
+      if (initialInstruction) {
+        initialInstruction.textContent = 'Press U to upload a file, or click the Upload button.';
+      }
       announce(loadHelp);
     }, 800);
   });

@@ -67,9 +67,12 @@
           <h2 class="summary-section-title">🟦 General Summary</h2>
           <p class="summary-intro">A short, plain-language paragraph that summarizes the document for readers who want a simple explanation:</p>
           <div class="general-summary-area">
+            <p id="general-gist" class="general-gist-text" aria-live="polite">No gist available.</p>
             <p id="general-summary" class="general-summary-text" aria-live="polite">No summary available.</p>
-            <div style="margin-top:8px;">
+            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button id="btn-read-gist" class="btn">Read Gist</button>
               <button id="btn-read-general" class="btn">Read General Summary (G)</button>
+              <button id="btn-read-simple" class="btn">Read Simplified Explanation (V)</button>
             </div>
           </div>
         </div>

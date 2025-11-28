@@ -77,10 +77,56 @@
       generalizedSummary = 'No summary available.';
     }
     if (generalEl) generalEl.textContent = generalizedSummary;
+    // Create a one-sentence gist (first short sentence) for quick understanding
+    const gistEl = document.getElementById('general-gist');
+    let gist = '';
+    const gistSentences = generalizedSummary.match(/[^.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [];
+    if (gistSentences.length > 0) {
+      gist = gistSentences[0].trim();
+      // If first sentence is long, try to shorten to first clause up to 120 chars
+      if (gist.length > 120) {
+        const clause = gist.split(/,|;|:\s/)[0];
+        if (clause && clause.length < gist.length) gist = clause.trim();
+      }
+    } else {
+      gist = generalizedSummary.split('.').slice(0,1).join('.').trim();
+    }
+    if (!gist) gist = 'No gist available.';
+    if (gistEl) gistEl.textContent = gist;
+
+    // Generate a simple, more conversational simplified summary by replacing common complex words and shortening sentences
+    const simpleEl = document.getElementById('simple-summary');
+    const replacements = {
+      'approximately': 'about',
+      'identified': 'found',
+      'document': 'file',
+      'summary': 'short summary',
+      'utilize': 'use',
+      'approximately': 'about',
+      'demonstrates': 'shows'
+    };
+    const simplifyText = (txt) => {
+      if (!txt) return '';
+      let out = txt;
+      // replace words
+      Object.keys(replacements).forEach(k => {
+        const re = new RegExp('\\b'+k+'\\b','gi');
+        out = out.replace(re, replacements[k]);
+      });
+      // break long sentences into shorter ones (naive)
+      out = out.split(/\.\s+/).map(s => s.trim()).slice(0,3).map(s => {
+        if (s.length > 140) return s.match(/.{1,120}(?:\s|$)/g).join('. ');
+        return s;
+      }).join('. ');
+      if (!/[\.\!\?]$/.test(out)) out = out + '.';
+      return out;
+    };
+    const simplified = simplifyText(generalizedSummary);
+    if (simpleEl) simpleEl.textContent = simplified || 'No simplified explanation available.';
 
     // Announce summary page with statistics
     setTimeout(() => {
-      const summaryStats = `Welcome to the summary page. Your document contains ${words} words, ${sentences} sentences, and will take approximately ${readingTime} minutes to read. We have identified ${summaryArray.length} key points in your document. A short general summary is available on this page. Press G to hear the general summary, or press H to hear all available shortcuts.`;
+      const summaryStats = `Welcome to the summary page. Your document contains ${words} words, ${sentences} sentences, and will take about ${readingTime} minutes to read. We have found ${summaryArray.length} key points in your file. A short general summary and a simplified explanation are available on this page. Press G to hear the general summary, V to hear the simplified explanation, or press H to hear all available shortcuts.`;
       announce(summaryStats);
     }, 300);
   });
@@ -104,11 +150,36 @@
     if (k === 'h') {
       e.preventDefault();
       showSummaryPageShortcuts();
-    }
-    if (k === 'g') {
+    } else if (k === 'g') {
       e.preventDefault();
       const gen = document.getElementById('general-summary')?.textContent || '';
       if (gen) announce(gen);
+    } else if (k === 'v') {
+      e.preventDefault();
+      const sim = document.getElementById('simple-summary')?.textContent || '';
+      if (sim) announce(sim);
     }
   });
+
+  // Read General Summary button
+  const btnReadGeneral = document.getElementById('btn-read-general');
+  btnReadGeneral?.addEventListener('click', () => {
+    const gen = document.getElementById('general-summary')?.textContent || '';
+    if (gen) announce(gen);
+  });
+
+  // Read Gist button
+  const btnReadGist = document.getElementById('btn-read-gist');
+  btnReadGist?.addEventListener('click', () => {
+    const gist = document.getElementById('general-gist')?.textContent || '';
+    if (gist) announce(gist);
+  });
+
+  // Read Simplified Explanation button
+  const btnReadSimple = document.getElementById('btn-read-simple');
+  btnReadSimple?.addEventListener('click', () => {
+    const sim = document.getElementById('simple-summary')?.textContent || '';
+    if (sim) announce(sim);
+  });
+
 })();
