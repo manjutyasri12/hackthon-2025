@@ -3,7 +3,9 @@
   const announce = (text, priority = 'polite') => {
     // ARIA live region
     const live = document.getElementById('file-info');
-    live.textContent = text;
+    if (live) {
+      live.textContent = text;
+    }
     // Speech (Talkback)
     if ('speechSynthesis' in window) {
       const u = new SpeechSynthesisUtterance(text);
@@ -14,15 +16,30 @@
     }
   };
 
-  // Announce site name on load
+  // Announce site name and initial instructions on load
   window.addEventListener('load', () => {
-    const announceText = 'Welcome to VisualCogn, accessible tools for visually and cognitively impaired users.';
     // slight delay for voices to load
-    setTimeout(() => announce(announceText), 400);
+    setTimeout(() => {
+      const greetingText = 'Welcome to VisualCogn, an accessible document reader. Press U to upload a file, or use the Upload button.';
+      announce(greetingText);
+      
+      const instructionEl = document.getElementById('initial-instruction');
+      if (instructionEl) {
+        instructionEl.textContent = '👉 Start: Press U or click Upload to select a file (text, PDF, or image)';
+        instructionEl.style.fontSize = '16px';
+        instructionEl.style.padding = '16px';
+        instructionEl.style.backgroundColor = '#e3f2fd';
+        instructionEl.style.borderLeft = '4px solid #0b63ff';
+        instructionEl.style.borderRadius = '8px';
+        instructionEl.style.marginBottom = '12px';
+        instructionEl.style.fontWeight = '500';
+      }
+    }, 400);
   });
 
   // Elements
   const fileInput = document.getElementById('file-input');
+  const btnUpload = document.getElementById('btn-upload');
   const btnExtract = document.getElementById('btn-extract');
   const btnSpeak = document.getElementById('btn-speak');
   const btnPause = document.getElementById('btn-pause');
@@ -36,6 +53,7 @@
   const brailleOutput = document.getElementById('braille-output');
   const summaryOutput = document.getElementById('summary-output');
   const progressEl = document.getElementById('progress');
+  const instructionEl = document.getElementById('initial-instruction');
 
   let lastFile = null;
   let lastText = '';
@@ -73,7 +91,19 @@
     imagePreview.innerHTML = '';
 
     if (!f) return;
+    
     announce(`File ${f.name} selected. Press E to extract text.`);
+    
+    // Update instruction
+    if (instructionEl) {
+      instructionEl.innerHTML = `
+        ✅ File uploaded: <strong>${f.name}</strong><br>
+        👉 Next step: Press E or click Extract to read the file
+      `;
+      instructionEl.style.backgroundColor = '#e8f5e9';
+      instructionEl.style.borderLeftColor = '#00a36e';
+    }
+    
     // clear previous progress and extracted text
     if (progressEl) { progressEl.textContent = ''; progressEl.classList.add('sr-only'); }
     if (extractedText) extractedText.value = '';
@@ -95,6 +125,14 @@
       lastText = normalized;
       // enable read option when a text file is loaded
       if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+      if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
+      announce('Text file loaded. Press S to read aloud.');
+      if (instructionEl) {
+        instructionEl.innerHTML = `
+          ✅ File extracted: <strong>${f.name}</strong><br>
+          👉 Now you can: Press S to read aloud, Press D to download as MP3, or Press I to identify images
+        `;
+      }
     }
   });
 
@@ -109,9 +147,19 @@
         const normalized = normalizeText(data.text || '');
         extractedText.value = normalized;
         lastText = normalized;
-        announce('Text extracted from image.');
+        announce('Text extracted from image. Press S to read aloud.');
         if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+        if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
         makeSummary(lastText);
+        
+        if (instructionEl) {
+          instructionEl.innerHTML = `
+            ✅ Text extracted from image!<br>
+            👉 Next: Press S to read aloud, or P to pause, or D to download as MP3
+          `;
+          instructionEl.style.backgroundColor = '#e8f5e9';
+          instructionEl.style.borderLeftColor = '#00a36e';
+        }
       } catch (err) {
         console.error(err);
         announce('OCR failed.');
@@ -171,9 +219,19 @@
         lastText = normalized;
         announce('Text extracted from PDF. Read option is now available.');
         if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+        if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
         makeSummary(lastText);
         if (progressEl) { progressEl.textContent = 'Extraction complete.'; progressEl.classList.add('sr-only'); }
         extractedText.focus && extractedText.focus();
+        
+        if (instructionEl) {
+          instructionEl.innerHTML = `
+            ✅ PDF extracted successfully!<br>
+            👉 Next: Press S to read, P to pause, T to stop, or D to download as MP3
+          `;
+          instructionEl.style.backgroundColor = '#e8f5e9';
+          instructionEl.style.borderLeftColor = '#00a36e';
+        }
       } catch (err) {
         console.error(err);
         announce('PDF extraction failed.');
@@ -186,7 +244,17 @@
       lastText = normalized;
       announce('Text extracted from file. Read option is now available.');
       if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
+      if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
       makeSummary(lastText);
+      
+      if (instructionEl) {
+        instructionEl.innerHTML = `
+          ✅ Text extracted!<br>
+          👉 Next: Press S to read aloud, P to pause, T to stop, or D to download as MP3
+        `;
+        instructionEl.style.backgroundColor = '#e8f5e9';
+        instructionEl.style.borderLeftColor = '#00a36e';
+      }
     }
   });
 
@@ -463,9 +531,31 @@
   btnHelp.addEventListener('click', () => showHelp());
 
   function showHelp() {
-    const help = `Shortcuts: U upload, E extract text, S read aloud, D download audio (WAV), I identify image, R record speech to braille, H help. Use plus or minus to change speech speed.`;
-    announce(help);
-    alert(help);
+    const helpText = `VisualCogn Quick Guide:
+    
+1. UPLOAD & EXTRACT:
+   - Press U: Upload a file (text, PDF, or image)
+   - Press E: Extract text from file
+
+2. READ ALOUD:
+   - Press S: Play - Start reading text aloud
+   - Press P: Pause - Pause reading. Press S again to resume
+   - Press T: Stop - Stop reading completely
+
+3. DOWNLOAD:
+   - Press D: Download extracted text as MP3 audio file
+
+4. ADVANCED:
+   - Press I: Identify Image - Describe what's in an image
+   - Press R: Record speech and convert to Braille
+   - Press +/-: Adjust speech speed (slower to faster)
+   - Press 1, 2, 3: Set speed to 1x, 1.5x, 2x
+
+This tool is designed for visually impaired and cognitive users.
+All features work with keyboard shortcuts or mouse clicks.`;
+    
+    announce(helpText);
+    alert(helpText);
   }
 
   // Keyboard shortcuts

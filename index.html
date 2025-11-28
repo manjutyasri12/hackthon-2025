@@ -10,24 +10,32 @@
 <body>
   <header>
     <h1 id="site-title">VisualCogn</h1>
-    <p class="sr-only" id="site-announcement">Welcome to VisualCogn — an accessibility tool for visually impaired and cognitive users.</p>
+    <p class="subtitle">Accessible Document Reader for Everyone</p>
+    <p class="sr-only" id="site-announcement">Welcome to VisualCogn, an accessibility tool for visually impaired and cognitive users.</p>
   </header>
 
   <main>
     <section id="controls" aria-label="Main controls">
+      <h2 class="controls-title">📁 Upload & Extract Documents</h2>
+      <p id="initial-instruction" class="instruction-text" aria-live="polite" aria-atomic="true"></p>
+      
       <div class="big-buttons">
         <label class="btn" id="btn-upload" for="file-input" tabindex="0" aria-keyshortcuts="U">
           <span class="icon" aria-hidden="true">📁</span>
           <span class="label">Upload File (U)</span>
-          <input id="file-input" type="file" accept="*/*" aria-label="Upload a file" hidden>
+          <input id="file-input" type="file" accept="*/*" aria-label="Upload a file for text extraction" hidden>
         </label>
 
-        <button class="btn" id="btn-extract" aria-keyshortcuts="E">
+        <button class="btn" id="btn-extract" aria-keyshortcuts="E" disabled>
           <span class="icon" aria-hidden="true">📝</span>
           <span class="label">Extract Text (E)</span>
         </button>
+      </div>
+
+      <h2 class="controls-title" style="margin-top: 24px;">🔊 Read Aloud & Download</h2>
+      <div class="big-buttons">
         <button class="btn" id="btn-speak" aria-keyshortcuts="S" disabled>
-          <span class="icon" aria-hidden="true">🔊</span>
+          <span class="icon" aria-hidden="true">▶️</span>
           <span class="label">Play (S)</span>
         </button>
         <button class="btn" id="btn-pause" aria-keyshortcuts="P" disabled>
@@ -38,10 +46,14 @@
           <span class="icon" aria-hidden="true">⏹️</span>
           <span class="label">Stop (T)</span>
         </button>
-        <button class="btn" id="btn-download" aria-keyshortcuts="D">
+        <button class="btn" id="btn-download" aria-keyshortcuts="D" disabled>
           <span class="icon" aria-hidden="true">⬇️</span>
-          <span class="label">Download Audio (D)</span>
+          <span class="label">Download MP3 (D)</span>
         </button>
+      </div>
+
+      <h2 class="controls-title" style="margin-top: 24px;">🔧 Advanced Features</h2>
+      <div class="big-buttons">
         <button class="btn" id="btn-identify" aria-keyshortcuts="I">
           <span class="icon" aria-hidden="true">🖼️</span>
           <span class="label">Identify Image (I)</span>
@@ -57,9 +69,9 @@
       </div>
 
       <div id="speed-control" aria-label="Speech speed control">
-        <label for="speed">Speed:</label>
+        <label for="speed">🎚️ Speed:</label>
         <button id="speed-decrease" class="small">−</button>
-        <input id="speed" type="number" step="0.5" min="0.5" max="2" value="1" aria-label="Speech speed">
+        <input id="speed" type="number" step="0.5" min="0.5" max="2" value="1" aria-label="Speech speed in times normal speed">
         <button id="speed-increase" class="small">+</button>
       </div>
     </section>
