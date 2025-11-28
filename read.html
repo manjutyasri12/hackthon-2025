@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VisualCogn — Read Document</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="VisualCogn: read and listen to your extracted document text.">
+</head>
+<body>
+  <!-- PAGE 2: READ PAGE (Text + TTS) -->
+  <div id="read-page" class="page active">
+    <header class="read-header">
+      <a href="index.html" class="btn-back" id="btn-back-read" aria-label="Go back to upload page">← Back</a>
+      <h1>📖 Read Document</h1>
+      <p class="sr-only" id="read-page-announcement">You are on the read page. Here you can listen to your document and control the reading.</p>
+    </header>
+
+    <main class="read-main">
+      <section class="read-workspace" aria-label="Text reading workspace">
+        <div id="read-file-info" class="file-info" role="status" aria-live="polite"></div>
+
+        <!-- TTS Controls -->
+        <div class="tts-controls">
+          <h2 class="controls-title">🔊 Listen to Document</h2>
+          <div class="tts-buttons">
+            <button class="btn btn-lg" id="btn-play" aria-keyshortcuts="S">
+              <span class="icon">▶️</span>
+              <span class="label">Play (S)</span>
+            </button>
+            <button class="btn btn-lg" id="btn-pause" aria-keyshortcuts="P" disabled>
+              <span class="icon">⏸️</span>
+              <span class="label">Pause (P)</span>
+            </button>
+            <button class="btn btn-lg" id="btn-stop" aria-keyshortcuts="T" disabled>
+              <span class="icon">⏹️</span>
+              <span class="label">Stop (T)</span>
+            </button>
+            <button class="btn btn-lg" id="btn-download-mp3" aria-keyshortcuts="D">
+              <span class="icon">⬇️</span>
+              <span class="label">Download MP3 (D)</span>
+            </button>
+          </div>
+
+          <!-- Speed Control -->
+          <div id="read-speed-control" class="speed-control">
+            <label for="read-speed">🎚️ Speed:</label>
+            <button id="read-speed-decrease" class="speed-btn">−</button>
+            <input id="read-speed" type="number" step="0.5" min="0.5" max="2" value="1" aria-label="Speech speed">
+            <button id="read-speed-increase" class="speed-btn">+</button>
+            <span id="read-speed-display" class="speed-display">1.0x</span>
+          </div>
+        </div>
+
+        <!-- Text Area -->
+        <div class="text-section">
+          <h2 class="section-title">📝 Extracted Text</h2>
+          <div id="read-progress" role="status" aria-live="assertive" class="sr-only"></div>
+          <textarea id="read-text" placeholder="Text will appear here" aria-label="Extracted text" readonly></textarea>
+        </div>
+
+        <!-- Summary & Download -->
+        <div class="action-buttons">
+          <a href="summary.html" class="btn btn-primary" id="btn-view-summary" aria-keyshortcuts="M">
+            <span class="icon">📊</span>
+            <span class="label">View Summary (M)</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="read-footer">
+      <small>Use keyboard shortcuts or click buttons to control reading.</small>
+    </footer>
+  </div>
+
+  <!-- Live Region for Announcements -->
+  <div id="file-info" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@latest/dist/ml5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recordrtc@5/RecordRTC.min.js"></script>
+  <script src="script-read.js"></script>
+  <script>
+    // Announce page on load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        announce('You are on the read page. Use keyboard shortcut S to play, P to pause, T to stop, or M for summary.');
+      }, 500);
+    });
+  </script>
+</body>
+</html>

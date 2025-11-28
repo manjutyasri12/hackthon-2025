@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VisualCogn — Document Summary</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="VisualCogn: view summary and statistics of your document.">
+</head>
+<body>
+  <!-- PAGE 3: SUMMARY PAGE (Beautiful Summary) -->
+  <div id="summary-page" class="page active">
+    <header class="summary-header">
+      <a href="read.html" class="btn-back" id="btn-back-summary" aria-label="Go back to reading page">← Back</a>
+      <h1>📊 Document Summary</h1>
+      <p class="subtitle-small">Key points from your document</p>
+      <p class="sr-only" id="summary-page-announcement">You are on the summary page. Here you can see statistics and key points from your document.</p>
+    </header>
+
+    <main class="summary-main">
+      <section class="summary-workspace" aria-label="Document summary">
+        
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📄</div>
+            <div class="stat-content">
+              <div class="stat-label">Total Words</div>
+              <div class="stat-value" id="stat-words">0</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-content">
+              <div class="stat-label">Sentences</div>
+              <div class="stat-value" id="stat-sentences">0</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-content">
+              <div class="stat-label">Reading Time</div>
+              <div class="stat-value" id="stat-reading-time">0 min</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+              <div class="stat-label">Key Points</div>
+              <div class="stat-value" id="stat-key-points">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary Content -->
+        <div class="summary-content">
+          <h2 class="summary-section-title">✨ Key Points from Your Document</h2>
+          <p class="summary-intro">Read these important sentences to understand the main ideas:</p>
+          
+          <div class="summary-list" id="summary-list">
+            <!-- Summary items will be added here -->
+          </div>
+        </div>
+
+        <!-- Full Text Option -->
+        <div class="full-text-section">
+          <h2 class="summary-section-title">📄 Full Document Text</h2>
+          <textarea id="summary-full-text" class="summary-textarea" placeholder="Full text will appear here" readonly></textarea>
+        </div>
+      </section>
+    </main>
+
+    <footer class="summary-footer">
+      <small>This summary helps you understand the main ideas in your document.</small>
+    </footer>
+  </div>
+
+  <!-- Live Region for Announcements -->
+  <div id="file-info" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@latest/dist/ml5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recordrtc@5/RecordRTC.min.js"></script>
+  <script src="script-summary.js"></script>
+  <script>
+    // Announce page on load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        announce('You are on the summary page. Here are the document statistics and key points. Use the back arrow to return to the read page.');
+      }, 500);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VisualCogn — Accessible Document Reader</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="VisualCogn: accessibility tools for visually impaired and cognitive users.">
+</head>
+<body>
+  <!-- PAGE 1: HOME PAGE (Upload & Extract) -->
+  <div id="home-page" class="page active">
+    <header>
+      <h1 id="site-title">VisualCogn</h1>
+      <p class="subtitle">Accessible Document Reader for Everyone</p>
+      <p class="sr-only" id="site-announcement">Welcome to VisualCogn, an accessibility tool for visually impaired and cognitive users.</p>
+    </header>
+
+    <main>
+      <section id="controls" aria-label="Main controls">
+        <h2 class="controls-title">📁 Upload & Extract Documents</h2>
+        <p id="initial-instruction" class="instruction-text" aria-live="polite" aria-atomic="true"></p>
+        
+        <div class="big-buttons">
+          <label class="btn" id="btn-upload" for="file-input" tabindex="0" aria-keyshortcuts="U">
+            <span class="icon" aria-hidden="true">📁</span>
+            <span class="label">Upload File (U)</span>
+            <input id="file-input" type="file" accept="*/*" aria-label="Upload a file for text extraction" hidden>
+          </label>
+
+          <button class="btn" id="btn-extract" aria-keyshortcuts="E" disabled>
+            <span class="icon" aria-hidden="true">📝</span>
+            <span class="label">Extract Text (E)</span>
+          </button>
+        </div>
+
+        <h2 class="controls-title" style="margin-top: 24px;">🔧 Other Tools</h2>
+        <div class="big-buttons">
+          <button class="btn" id="btn-identify" aria-keyshortcuts="I">
+            <span class="icon" aria-hidden="true">🖼️</span>
+            <span class="label">Identify Image (I)</span>
+          </button>
+          <button class="btn" id="btn-record" aria-keyshortcuts="R">
+            <span class="icon" aria-hidden="true">🎤</span>
+            <span class="label">Speech→Braille (R)</span>
+          </button>
+          <button class="btn" id="btn-help" aria-keyshortcuts="H">
+            <span class="icon" aria-hidden="true">❓</span>
+            <span class="label">Help / Shortcuts (H)</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <small>VisualCogn — Accessible demo. All features work offline.</small>
+    </footer>
+  </div>
+
+  <!-- PAGE 2: READ PAGE (Text + TTS) -->
+  <div id="read-page" class="page">
+    <header class="read-header">
+      <button class="btn-back" id="btn-back-read" aria-label="Go back to upload page">← Back</button>
+      <h1>📖 Read Document</h1>
+    </header>
+
+    <main class="read-main">
+      <section class="read-workspace" aria-label="Text reading workspace">
+        <div id="read-file-info" class="file-info" role="status" aria-live="polite"></div>
+
+        <!-- TTS Controls -->
+        <div class="tts-controls">
+          <h2 class="controls-title">🔊 Listen to Document</h2>
+          <div class="tts-buttons">
+            <button class="btn btn-lg" id="btn-play" aria-keyshortcuts="S">
+              <span class="icon">▶️</span>
+              <span class="label">Play (S)</span>
+            </button>
+            <button class="btn btn-lg" id="btn-pause" aria-keyshortcuts="P" disabled>
+              <span class="icon">⏸️</span>
+              <span class="label">Pause (P)</span>
+            </button>
+            <button class="btn btn-lg" id="btn-stop" aria-keyshortcuts="T" disabled>
+              <span class="icon">⏹️</span>
+              <span class="label">Stop (T)</span>
+            </button>
+            <button class="btn btn-lg" id="btn-download-mp3" aria-keyshortcuts="D">
+              <span class="icon">⬇️</span>
+              <span class="label">Download MP3 (D)</span>
+            </button>
+          </div>
+
+          <!-- Speed Control -->
+          <div id="read-speed-control" class="speed-control">
+            <label for="read-speed">🎚️ Speed:</label>
+            <button id="read-speed-decrease" class="speed-btn">−</button>
+            <input id="read-speed" type="number" step="0.5" min="0.5" max="2" value="1" aria-label="Speech speed">
+            <button id="read-speed-increase" class="speed-btn">+</button>
+            <span id="read-speed-display" class="speed-display">1.0x</span>
+          </div>
+        </div>
+
+        <!-- Text Area -->
+        <div class="text-section">
+          <h2 class="section-title">📝 Extracted Text</h2>
+          <div id="read-progress" role="status" aria-live="assertive" class="sr-only"></div>
+          <textarea id="read-text" placeholder="Text will appear here" aria-label="Extracted text" readonly></textarea>
+        </div>
+
+        <!-- Summary & Download -->
+        <div class="action-buttons">
+          <button class="btn btn-primary" id="btn-view-summary" aria-keyshortcuts="M">
+            <span class="icon">📊</span>
+            <span class="label">View Summary (M)</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="read-footer">
+      <small>Use keyboard shortcuts or click buttons to control reading.</small>
+    </footer>
+  </div>
+
+  <!-- PAGE 3: SUMMARY PAGE (Beautiful Summary) -->
+  <div id="summary-page" class="page">
+    <header class="summary-header">
+      <button class="btn-back" id="btn-back-summary" aria-label="Go back to reading page">← Back</button>
+      <h1>📊 Document Summary</h1>
+      <p class="subtitle-small">Key points from your document</p>
+    </header>
+
+    <main class="summary-main">
+      <section class="summary-workspace" aria-label="Document summary">
+        
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📄</div>
+            <div class="stat-content">
+              <div class="stat-label">Total Words</div>
+              <div class="stat-value" id="stat-words">0</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-content">
+              <div class="stat-label">Sentences</div>
+              <div class="stat-value" id="stat-sentences">0</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-content">
+              <div class="stat-label">Reading Time</div>
+              <div class="stat-value" id="stat-reading-time">0 min</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-content">
+              <div class="stat-label">Key Points</div>
+              <div class="stat-value" id="stat-key-points">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary Content -->
+        <div class="summary-content">
+          <h2 class="summary-section-title">✨ Key Points from Your Document</h2>
+          <p class="summary-intro">Read these important sentences to understand the main ideas:</p>
+          
+          <div class="summary-list" id="summary-list">
+            <!-- Summary items will be added here -->
+          </div>
+        </div>
+
+        <!-- Full Text Option -->
+        <div class="full-text-section">
+          <h2 class="summary-section-title">📄 Full Document Text</h2>
+          <textarea id="summary-full-text" class="summary-textarea" placeholder="Full text will appear here" readonly></textarea>
+        </div>
+      </section>
+    </main>
+
+    <footer class="summary-footer">
+      <small>This summary helps you understand the main ideas in your document.</small>
+    </footer>
+  </div>
+
+  <!-- Live Region for Announcements -->
+  <div id="file-info" role="status" aria-live="polite" class="sr-only"></div>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@latest/dist/ml5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recordrtc@5/RecordRTC.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
+
