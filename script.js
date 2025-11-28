@@ -5,16 +5,39 @@
   let extractedText = '';
   let summaryArray = [];
 
-  // Announce function
+  // Announce function with better talkback support
   const announce = (text, priority = 'polite') => {
-    const live = document.getElementById('file-info');
-    if (live) live.textContent = text;
-    if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(text);
-      const speedEl = document.getElementById('read-speed') || document.getElementById('speed');
-      if (speedEl) u.rate = parseFloat(speedEl.value) || 1;
-      speechSynthesis.cancel();
-      speechSynthesis.speak(u);
+    try {
+      // Update live region for screen readers
+      const live = document.getElementById('file-info');
+      if (live) {
+        live.setAttribute('role', 'status');
+        live.setAttribute('aria-live', priority);
+        live.setAttribute('aria-atomic', 'true');
+        live.textContent = text;
+      }
+
+      // Text-to-speech announcement
+      if ('speechSynthesis' in window) {
+        // Cancel any previous speech
+        window.speechSynthesis.cancel();
+        
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1; // Default rate for announcements
+        u.pitch = 1;
+        u.volume = 1;
+        
+        // Use setTimeout to ensure speech happens
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.speak(u);
+          } catch (e) {
+            console.error('Speech synthesis error:', e);
+          }
+        }, 100);
+      }
+    } catch (err) {
+      console.error('Announce error:', err);
     }
   };
 
@@ -53,17 +76,20 @@
 
   // Initial greeting
   window.addEventListener('load', () => {
+    // Wait for voices to load and page to fully render
     setTimeout(() => {
-      announce('Welcome to VisualCogn. Press U to upload a file.');
+      const greeting = 'Welcome to VisualCogn. Press the letter U on your keyboard to upload a file, or click the Upload button.';
+      announce(greeting);
+      
       if (initialInstruction) {
         initialInstruction.innerHTML = `
           <strong>🎯 Getting Started:</strong><br>
-          Press <strong>U</strong> to upload a file (text, PDF, or image)<br>
-          Or click the Upload button<br><br>
-          📁 Supported formats: Text, PDF, Images
+          Press <strong>U</strong> on your keyboard to upload a file<br>
+          Or click the Upload button below<br><br>
+          📁 Supported formats: Text files, PDFs, and Images
         `;
       }
-    }, 400);
+    }, 600);
   });
 
   // Upload handler
@@ -80,11 +106,13 @@
         File name: <strong>${f.name}</strong><br><br>
         Press <strong>E</strong> to extract text
       `;
-      initialInstruction.style.backgroundColor = var(--success-light);
-      initialInstruction.style.borderLeftColor = 'var(--success)';
+      initialInstruction.style.backgroundColor = '#e8f5e9';
+      initialInstruction.style.borderLeftColor = '#00a36e';
     }
 
-    btnExtract.disabled = false;
+    if (btnExtract) {
+      btnExtract.disabled = false;
+    }
   });
 
   // Extract handler
@@ -297,22 +325,36 @@
     if (ttsIndex >= ttsQueue.length) {
       ttsPlaying = false;
       enableTTSControls(false);
-      announce('Finished reading.');
+      announce('Finished reading document.');
       return;
     }
 
     const chunk = ttsQueue[ttsIndex];
     const u = new SpeechSynthesisUtterance(chunk);
-    u.rate = parseFloat(readSpeed?.value) || 1;
+    
+    // Get current speed from read page or default to 1
+    const currentSpeed = readSpeed ? parseFloat(readSpeed.value) : 1;
+    u.rate = currentSpeed || 1;
+    u.pitch = 1;
+    u.volume = 1;
+    
     u.onend = () => {
       ttsIndex++;
       setTimeout(() => { if (!ttsPaused && ttsPlaying) playNextChunk(); }, 50);
     };
-    u.onerror = () => {
+    u.onerror = (err) => {
+      console.error('Speech error:', err);
       ttsPlaying = false;
       enableTTSControls(false);
+      announce('Reading stopped due to error.');
     };
-    speechSynthesis.speak(u);
+    
+    try {
+      speechSynthesis.speak(u);
+    } catch (err) {
+      console.error('Speech synthesis error:', err);
+      announce('Text to speech not available.');
+    }
   };
 
   const stopTTS = () => {
@@ -510,20 +552,53 @@
   // ==================== KEYBOARD SHORTCUTS ====================
 
   window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'TEXTAREA') return;
+    // Don't trigger shortcuts when typing in textarea
+    if (e.target.tagName === 'TEXTAREA' && e.target.id !== 'read-text' && e.target.id !== 'summary-full-text') {
+      return;
+    }
+
     const k = e.key.toLowerCase();
 
-    if (k === 'u') fileInput?.click();
-    if (k === 'e') btnExtract?.click();
-    if (k === 's') btnPlay?.click();
-    if (k === 'p') btnPause?.click();
-    if (k === 't') btnStop?.click();
-    if (k === 'd') btnDownloadMP3?.click();
-    if (k === 'i') btnIdentify?.click();
-    if (k === 'r') btnRecord?.click();
-    if (k === 'm') btnViewSummary?.click();
-    if (k === 'h') btnHelp?.click();
-    if (k === '+') readSpeedIncrease?.click();
-    if (k === '-') readSpeedDecrease?.click();
+    // Prevent default behavior for shortcuts
+    if (['u', 'e', 's', 'p', 't', 'd', 'i', 'r', 'm', 'h'].includes(k)) {
+      e.preventDefault();
+    }
+
+    if (k === 'u') {
+      fileInput?.click();
+    }
+    if (k === 'e') {
+      btnExtract?.click();
+    }
+    if (k === 's') {
+      btnPlay?.click();
+    }
+    if (k === 'p') {
+      btnPause?.click();
+    }
+    if (k === 't') {
+      btnStop?.click();
+    }
+    if (k === 'd') {
+      btnDownloadMP3?.click();
+    }
+    if (k === 'i') {
+      btnIdentify?.click();
+    }
+    if (k === 'r') {
+      btnRecord?.click();
+    }
+    if (k === 'm') {
+      btnViewSummary?.click();
+    }
+    if (k === 'h') {
+      btnHelp?.click();
+    }
+    if (k === '+' || k === '=') {
+      readSpeedIncrease?.click();
+    }
+    if (k === '-') {
+      readSpeedDecrease?.click();
+    }
   });
 })();
