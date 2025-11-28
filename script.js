@@ -307,6 +307,10 @@
   };
 
   const startTTS = (text) => {
+    if (!text || text.trim() === '') {
+      announce('No text available to read.');
+      return;
+    }
     if (!('speechSynthesis' in window)) {
       announce('Speech not supported.');
       return;
@@ -381,6 +385,10 @@
   };
 
   btnPlay?.addEventListener('click', () => {
+    if (!extractedText || extractedText.trim() === '') {
+      announce('No text to read. Please upload and extract a document first.');
+      return;
+    }
     if (ttsPaused) {
       speechSynthesis.resume();
       ttsPaused = false;
