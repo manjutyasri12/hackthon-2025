@@ -194,6 +194,13 @@
   btnSpeak.addEventListener('click', () => {
     const text = extractedText.value || lastText;
     if (!text) { announce('No text available. Please extract text first.'); return; }
+    
+    // If paused, resume instead of restarting
+    if (ttsPaused && ttsPlaying) {
+      btnPause.click();
+      return;
+    }
+    
     startTTS(text);
   });
 
@@ -201,15 +208,21 @@
   btnPause && btnPause.addEventListener('click', () => {
     if (!ttsPlaying) return;
     if (!ttsPaused) {
+      // Pause: stop speech synthesis and set flag
       speechSynthesis.pause();
       ttsPaused = true;
       announce('Paused reading.');
       btnPause.classList.add('active');
+      btnSpeak.textContent = 'Resume';
+      btnSpeak.querySelector('.label').textContent = 'Resume (S)';
     } else {
+      // Resume: continue playing from where we left off
       speechSynthesis.resume();
       ttsPaused = false;
       announce('Resumed reading.');
       btnPause.classList.remove('active');
+      btnSpeak.textContent = 'Play';
+      btnSpeak.querySelector('.label').textContent = 'Play (S)';
     }
   });
 
@@ -297,42 +310,106 @@
     announce(`Speech speed set to ${v}x.`);
   }
 
-  // Download audio: export MP3 or guide user to convert
+  // Download audio: convert text to MP3 using Web Speech API + lamejs
   btnDownload.addEventListener('click', async () => {
     const text = extractedText.value || lastText;
     if (!text) { announce('No text to convert to audio.'); return; }
     
-    announce('Opening download options.');
+    announce('Generating MP3 from text. This may take a moment.');
     
-    // Show a dialog with options
-    const choice = prompt(
-      'Choose download option:\n1. Download as TXT (for device TTS)\n2. Copy to online TTS converter (Google Translate, Natural Reader, etc.)\n\nEnter 1 or 2:',
-      '1'
-    );
-
-    if (choice === '1') {
-      // Download as text
-      const txtBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(txtBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'visualcogn_text.txt';
-      a.click();
-      URL.revokeObjectURL(url);
-      announce('Text file downloaded. Use Google Translate, Natural Reader, or your device TTS to create MP3.');
-    } else if (choice === '2') {
-      // Copy to clipboard for online converters
-      try {
-        await navigator.clipboard.writeText(text);
-        announce('Text copied to clipboard. Paste it into Google Translate, Natural Reader, or Voiceovers.ai to generate MP3.');
-        alert('Text copied to clipboard!\nPaste into:\n- Google Translate (select audio icon)\n- Natural Reader (naturalreader.com)\n- Voiceovers.ai\n- ReadSpeaker or similar services');
-      } catch (err) {
-        announce('Clipboard copy failed. Please download as text instead.');
-      }
-    } else {
-      announce('Download cancelled.');
+    try {
+      // Step 1: Record audio from Web Speech API using MediaRecorder
+      const utterances = splitToChunks(text);
+      const audioChunks = [];
+      
+      // Create audio context
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const mediaStreamAudioDestinationNode = audioContext.createMediaStreamAudioDestination();
+      
+      // Redirect speech synthesis to media stream
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = parseFloat(document.getElementById('speed').value) || 1;
+      
+      // Create media recorder
+      const mediaRecorder = new MediaRecorder(mediaStreamAudioDestinationNode.stream);
+      
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+      
+      mediaRecorder.onstop = async () => {
+        try {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+          
+          // Convert WAV to MP3 using lamejs
+          const arrayBuffer = await audioBlob.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          // Get raw PCM data
+          const rawData = audioBuffer.getChannelData(0);
+          const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128);
+          
+          const mp3Data = [];
+          const samples = 1152; // lamejs samples per frame
+          
+          for (let i = 0; i < rawData.length; i += samples) {
+            const sampleChunk = rawData.slice(i, i + samples);
+            const encoded = mp3Encoder.encodeBuffer(sampleChunk);
+            if (encoded.length > 0) {
+              mp3Data.push(encoded);
+            }
+          }
+          
+          const finalBuffer = mp3Encoder.flush();
+          if (finalBuffer.length > 0) {
+            mp3Data.push(finalBuffer);
+          }
+          
+          const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
+          const mp3Url = URL.createObjectURL(mp3Blob);
+          
+          const link = document.createElement('a');
+          link.href = mp3Url;
+          link.download = 'visualcogn_audio.mp3';
+          link.click();
+          
+          URL.revokeObjectURL(mp3Url);
+          announce('MP3 file downloaded successfully.');
+        } catch (err) {
+          console.error('MP3 encoding error:', err);
+          announce('MP3 encoding failed. Downloading as text instead.');
+          downloadAsText(text);
+        }
+      };
+      
+      mediaRecorder.start();
+      
+      // Speak the text
+      speechSynthesis.speak(utterance);
+      
+      // Stop recording when speech ends
+      utterance.onend = () => {
+        mediaRecorder.stop();
+      };
+      
+    } catch (err) {
+      console.error('Audio generation error:', err);
+      announce('Audio generation failed. Trying fallback method.');
+      downloadAsText(text);
     }
   });
+
+  // Fallback: download as text file
+  function downloadAsText(text) {
+    const txtBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(txtBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'visualcogn_text.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    announce('Text file downloaded. Please use an online TTS service to convert to MP3.');
+  }
 
   // Helpers for audio encoding (no longer needed - removed for simplicity)
 
