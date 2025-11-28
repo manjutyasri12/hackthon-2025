@@ -20,19 +20,25 @@
   window.addEventListener('load', () => {
     // slight delay for voices to load
     setTimeout(() => {
-      const greetingText = 'Welcome to VisualCogn, an accessible document reader. Press U to upload a file, or use the Upload button.';
+      const greetingText = 'Welcome to VisualCogn, an accessible document reader for visually impaired and cognitive users. To begin, press the letter U to upload a file. You can upload text files, PDF documents, or images.';
       announce(greetingText);
       
       const instructionEl = document.getElementById('initial-instruction');
       if (instructionEl) {
-        instructionEl.textContent = '👉 Start: Press U or click Upload to select a file (text, PDF, or image)';
+        instructionEl.innerHTML = `
+          <strong>🎯 Getting Started:</strong><br>
+          Press the letter <strong>U</strong> on your keyboard to upload a file<br>
+          Or click the Upload button below<br><br>
+          📁 Supported: Text files, PDFs, Images
+        `;
         instructionEl.style.fontSize = '16px';
-        instructionEl.style.padding = '16px';
+        instructionEl.style.padding = '20px';
         instructionEl.style.backgroundColor = '#e3f2fd';
-        instructionEl.style.borderLeft = '4px solid #0b63ff';
-        instructionEl.style.borderRadius = '8px';
-        instructionEl.style.marginBottom = '12px';
+        instructionEl.style.borderLeft = '6px solid #0b63ff';
+        instructionEl.style.borderRadius = '10px';
+        instructionEl.style.marginBottom = '20px';
         instructionEl.style.fontWeight = '500';
+        instructionEl.style.lineHeight = '1.8';
       }
     }, 400);
   });
@@ -92,13 +98,18 @@
 
     if (!f) return;
     
-    announce(`File ${f.name} selected. Press E to extract text.`);
+    announce(`File ${f.name} selected. Press E to extract text from file.`);
+    
+    // Enable extract button
+    if (btnExtract) btnExtract.disabled = false;
     
     // Update instruction
     if (instructionEl) {
       instructionEl.innerHTML = `
-        ✅ File uploaded: <strong>${f.name}</strong><br>
-        👉 Next step: Press E or click Extract to read the file
+        <strong>✅ File Uploaded!</strong><br>
+        File name: <strong>${f.name}</strong><br><br>
+        Press the letter <strong>E</strong> to extract text<br>
+        Or click the Extract Text button
       `;
       instructionEl.style.backgroundColor = '#e8f5e9';
       instructionEl.style.borderLeftColor = '#00a36e';
@@ -126,12 +137,18 @@
       // enable read option when a text file is loaded
       if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
       if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
+      if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
+      if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
       announce('Text file loaded. Press S to read aloud.');
       if (instructionEl) {
         instructionEl.innerHTML = `
-          ✅ File extracted: <strong>${f.name}</strong><br>
-          👉 Now you can: Press S to read aloud, Press D to download as MP3, or Press I to identify images
+          <strong>✅ Text File Extracted!</strong><br><br>
+          You can now:<br>
+          <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
+          <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
         `;
+        instructionEl.style.backgroundColor = '#e8f5e9';
+        instructionEl.style.borderLeftColor = '#00a36e';
       }
     }
   });
@@ -150,12 +167,16 @@
         announce('Text extracted from image. Press S to read aloud.');
         if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
         if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
+        if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
+        if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
         makeSummary(lastText);
         
         if (instructionEl) {
           instructionEl.innerHTML = `
-            ✅ Text extracted from image!<br>
-            👉 Next: Press S to read aloud, or P to pause, or D to download as MP3
+            <strong>✅ Image Text Extracted!</strong><br><br>
+            You can now:<br>
+            <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
+            <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
           `;
           instructionEl.style.backgroundColor = '#e8f5e9';
           instructionEl.style.borderLeftColor = '#00a36e';
@@ -220,14 +241,18 @@
         announce('Text extracted from PDF. Read option is now available.');
         if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
         if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
+        if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
+        if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
         makeSummary(lastText);
         if (progressEl) { progressEl.textContent = 'Extraction complete.'; progressEl.classList.add('sr-only'); }
         extractedText.focus && extractedText.focus();
         
         if (instructionEl) {
           instructionEl.innerHTML = `
-            ✅ PDF extracted successfully!<br>
-            👉 Next: Press S to read, P to pause, T to stop, or D to download as MP3
+            <strong>✅ PDF Extracted Successfully!</strong><br><br>
+            You can now:<br>
+            <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
+            <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
           `;
           instructionEl.style.backgroundColor = '#e8f5e9';
           instructionEl.style.borderLeftColor = '#00a36e';
@@ -245,12 +270,16 @@
       announce('Text extracted from file. Read option is now available.');
       if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
       if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
+      if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
+      if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
       makeSummary(lastText);
       
       if (instructionEl) {
         instructionEl.innerHTML = `
-          ✅ Text extracted!<br>
-          👉 Next: Press S to read aloud, P to pause, T to stop, or D to download as MP3
+          <strong>✅ Text Extracted!</strong><br><br>
+          You can now:<br>
+          <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
+          <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
         `;
         instructionEl.style.backgroundColor = '#e8f5e9';
         instructionEl.style.borderLeftColor = '#00a36e';
