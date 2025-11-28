@@ -100,7 +100,7 @@
     ttsPlaying = true;
     ttsPaused = false;
     enableTTSControls(true);
-    announce('Starting to read.');
+    // Don't announce 'starting to read' - just start reading immediately
     playNextChunk();
   };
 
@@ -172,14 +172,10 @@
     if (ttsPaused) {
       speechSynthesis.resume();
       ttsPaused = false;
-      const resumeMessage = `Resumed reading your document. Press P to pause, T to stop, or use plus and minus keys to adjust reading speed.`;
-      announce(resumeMessage);
+      announce('Resumed reading.');
     } else {
+      // Just start reading without announcement - let TTS begin naturally
       startTTS(extractedText);
-      setTimeout(() => {
-        const playMessage = `Now reading your document aloud. Use these keyboard shortcuts: P to pause, T to stop, plus and minus to adjust speed, D to download as MP3, or M to view a summary.`;
-        announce(playMessage);
-      }, 600);
     }
   });
 
@@ -308,35 +304,37 @@
       .map(x => x.sent);
   };
 
+  // Show all available shortcuts on read page
+  const showReadPageShortcuts = () => {
+    const shortcuts = `Read Page Shortcuts: S to play or resume, P to pause, T to stop, D to download MP3, M to view summary, Plus and Minus keys for speed, H for help.`;
+    announce(shortcuts);
+  };
+
   // Keyboard shortcuts
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'TEXTAREA') return;
 
     const k = e.key.toLowerCase();
 
-    if (['s', 'p', 't', 'd', 'm'].includes(k)) {
+    if (['s', 'p', 't', 'd', 'm', 'h'].includes(k)) {
       e.preventDefault();
     }
 
     if (k === 's') {
       btnPlay?.click();
-    }
-    if (k === 'p') {
+    } else if (k === 'p') {
       btnPause?.click();
-    }
-    if (k === 't') {
+    } else if (k === 't') {
       btnStop?.click();
-    }
-    if (k === 'd') {
+    } else if (k === 'd') {
       btnDownloadMP3?.click();
-    }
-    if (k === 'm') {
+    } else if (k === 'm') {
       btnViewSummary?.click();
-    }
-    if (k === '+' || k === '=') {
+    } else if (k === 'h') {
+      showReadPageShortcuts();
+    } else if (k === '+' || k === '=') {
       readSpeedIncrease?.click();
-    }
-    if (k === '-') {
+    } else if (k === '-') {
       readSpeedDecrease?.click();
     }
   });

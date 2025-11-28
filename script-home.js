@@ -58,14 +58,6 @@
   const btnHelp = document.getElementById('btn-help');
   const initialInstruction = document.getElementById('initial-instruction');
 
-  // Initial greeting
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      initialInstruction.textContent = 'Press U to upload a file, or choose from the tools below.';
-      initialInstruction.setAttribute('aria-live', 'polite');
-    }, 500);
-  });
-
   // File upload handler
   fileInput?.addEventListener('change', (e) => {
     currentFile = e.target.files?.[0];
@@ -210,24 +202,18 @@
     };
   });
 
-  // Help button
+  // Help button - show home page shortcuts
   btnHelp?.addEventListener('click', () => {
-    const helpText = `VisualCogn Keyboard Shortcuts:
-U - Upload a file
-E - Extract text from file
-I - Identify image
-R - Speech to Braille
-H - Show this help
-On read page:
-S - Play audio
-P - Pause
-T - Stop
-D - Download as MP3
-M - View summary
-Plus and minus - Adjust speed
-Back arrow - Go back`;
+    const helpText = `Home Page Shortcuts: U to upload a file, E to extract text, I to identify an image, R to convert speech to braille, H for this help.`;
     announce(helpText);
-    alert(helpText);
+  });
+
+  // Show shortcuts on load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const loadHelp = `You are on the upload page. Press U to upload a file, E to extract text, I to identify image, R for speech to braille, or H for help.`;
+      announce(loadHelp);
+    }, 800);
   });
 
   // Keyboard shortcuts

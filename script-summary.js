@@ -64,14 +64,30 @@
 
     // Announce summary page with statistics
     setTimeout(() => {
-      const summaryStats = `Summary page loaded. Document contains ${words} words, ${sentences} sentences, with an estimated reading time of ${readingTime} minutes. ${summaryArray.length} key points identified. Use the back arrow to return to the reading page.`;
+      const summaryStats = `Summary page loaded. Document contains ${words} words, ${sentences} sentences, with an estimated reading time of ${readingTime} minutes. ${summaryArray.length} key points identified. Press H to hear available shortcuts, or use the back arrow to return to the reading page.`;
       announce(summaryStats);
     }, 300);
   });
+
+  // Show all available shortcuts on summary page
+  const showSummaryPageShortcuts = () => {
+    const shortcuts = `Summary Page Shortcuts: Back arrow to return to reading page, or H for help.`;
+    announce(shortcuts);
+  };
 
   // Back button
   const btnBackSummary = document.getElementById('btn-back-summary');
   btnBackSummary?.addEventListener('click', () => {
     announce('Returned to reading page. Press S to play, P to pause, T to stop, M for summary again, or D to download as MP3.');
+  });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+
+    if (k === 'h') {
+      e.preventDefault();
+      showSummaryPageShortcuts();
+    }
   });
 })();
