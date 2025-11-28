@@ -62,9 +62,25 @@
       `).join('');
     }
 
+    // Build a generalized short paragraph summary for readers who want a simple explanation
+    const generalEl = document.getElementById('general-summary');
+    let generalizedSummary = '';
+    if (summaryArray && summaryArray.length > 0) {
+      // Use the top 3 key sentences to form a short paragraph
+      const top = summaryArray.slice(0, 3).join(' ');
+      generalizedSummary = top;
+    } else if (extractedText && extractedText.trim()) {
+      // Fallback: take the first 2-3 sentences from the document
+      const sents = extractedText.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [];
+      generalizedSummary = sents.slice(0, 3).join(' ').trim();
+    } else {
+      generalizedSummary = 'No summary available.';
+    }
+    if (generalEl) generalEl.textContent = generalizedSummary;
+
     // Announce summary page with statistics
     setTimeout(() => {
-      const summaryStats = `Welcome to the summary page. Your document contains ${words} words, ${sentences} sentences, and will take approximately ${readingTime} minutes to read. We have identified ${summaryArray.length} key points in your document. You can use the back arrow button to return to the reading page to continue listening to your document. Press H to hear all available shortcuts on this page.`;
+      const summaryStats = `Welcome to the summary page. Your document contains ${words} words, ${sentences} sentences, and will take approximately ${readingTime} minutes to read. We have identified ${summaryArray.length} key points in your document. A short general summary is available on this page. Press G to hear the general summary, or press H to hear all available shortcuts.`;
       announce(summaryStats);
     }, 300);
   });
@@ -88,6 +104,11 @@
     if (k === 'h') {
       e.preventDefault();
       showSummaryPageShortcuts();
+    }
+    if (k === 'g') {
+      e.preventDefault();
+      const gen = document.getElementById('general-summary')?.textContent || '';
+      if (gen) announce(gen);
     }
   });
 })();
