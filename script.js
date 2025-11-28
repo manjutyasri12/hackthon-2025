@@ -271,6 +271,7 @@
   btnBackRead?.addEventListener('click', () => {
     stopTTS();
     showPage('home-page');
+    announce('Returned to upload page. Press U to upload a new document, or E to extract text from your current file.');
   });
 
   // TTS Controls
@@ -325,7 +326,11 @@
     if (ttsIndex >= ttsQueue.length) {
       ttsPlaying = false;
       enableTTSControls(false);
-      announce('Finished reading document.');
+      
+      // Provide comprehensive guidance after finishing
+      const finishMessage = `Finished reading the document. You can now: Press M to view a summary of the document, Press D to download the document as an MP3 audio file, Press S to read again from the beginning, or Press the back arrow button to return to the upload page.`;
+      announce(finishMessage);
+      
       return;
     }
 
@@ -364,6 +369,10 @@
     ttsQueue = [];
     ttsIndex = 0;
     enableTTSControls(false);
+    
+    // Provide options when user stops reading
+    const stopMessage = `Reading stopped. You can: Press S to play again, Press M to view the document summary, Press D to download as MP3, or Press the back arrow to go back.`;
+    announce(stopMessage);
   };
 
   const enableTTSControls = (enabled) => {
@@ -375,10 +384,14 @@
     if (ttsPaused) {
       speechSynthesis.resume();
       ttsPaused = false;
-      announce('Resumed');
-      btnPause.textContent = 'Pause';
+      const resumeMessage = `Resumed reading your document. Press P to pause, T to stop, or use plus and minus keys to adjust reading speed.`;
+      announce(resumeMessage);
     } else {
       startTTS(extractedText);
+      setTimeout(() => {
+        const playMessage = `Now reading your document aloud. Use these keyboard shortcuts: P to pause, T to stop, plus and minus to adjust speed, D to download as MP3, or M to view a summary.`;
+        announce(playMessage);
+      }, 600);
     }
   });
 
@@ -386,7 +399,9 @@
     if (ttsPlaying) {
       speechSynthesis.pause();
       ttsPaused = true;
-      announce('Paused');
+      
+      const pauseMessage = `Reading paused. You can: Press S to resume reading, Press T to stop reading, Press D to download MP3, Press M to view summary, or press plus and minus keys to adjust reading speed.`;
+      announce(pauseMessage);
     }
   });
 
@@ -456,7 +471,7 @@
           link.click();
           URL.revokeObjectURL(url);
 
-          announce('MP3 downloaded successfully');
+          announce('MP3 file downloaded successfully. The audio file is named visualcogn_audio.mp3. You can now press M to view the document summary, S to read the document again, or use the back arrow to return to the upload page.');
         } catch (err) {
           console.error('MP3 error:', err);
           announce('MP3 generation failed');
@@ -513,12 +528,16 @@
     }
 
     showPage('summary-page');
-    announce(`Summary page showing ${summaryArray.length} key points`);
+    setTimeout(() => {
+      const summaryStats = `Summary page loaded. Document contains ${words} words, ${sentences} sentences, with an estimated reading time of ${readingTime} minutes. ${summaryArray.length} key points identified. Press plus and minus to listen to each point, S to read the full document again, D to download as MP3, or use the back arrow to return to the reading page.`;
+      announce(summaryStats);
+    }, 300);
   };
 
   const btnBackSummary = document.getElementById('btn-back-summary');
   btnBackSummary?.addEventListener('click', () => {
     showPage('read-page');
+    announce('Returned to reading page. Press S to play, P to pause, T to stop, M for summary again, or D to download as MP3.');
   });
 
   // ==================== SUMMARIZATION ====================
