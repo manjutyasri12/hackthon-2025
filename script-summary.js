@@ -64,14 +64,14 @@
 
     // Announce summary page with statistics
     setTimeout(() => {
-      const summaryStats = `Summary page loaded. Document contains ${words} words, ${sentences} sentences, with an estimated reading time of ${readingTime} minutes. ${summaryArray.length} key points identified. Press H to hear available shortcuts, or use the back arrow to return to the reading page.`;
+      const summaryStats = `Welcome to the summary page. Your document contains ${words} words, ${sentences} sentences, and will take approximately ${readingTime} minutes to read. We have identified ${summaryArray.length} key points in your document. You can use the back arrow button to return to the reading page to continue listening to your document. Press H to hear all available shortcuts on this page.`;
       announce(summaryStats);
     }, 300);
   });
 
   // Show all available shortcuts on summary page
   const showSummaryPageShortcuts = () => {
-    const shortcuts = `Summary Page Shortcuts: Back arrow to return to reading page, or H for help.`;
+    const shortcuts = `Here are the shortcuts available on the summary page. Press the back arrow button to return to the reading page where you can continue listening to your document. Press H again to hear these shortcuts again.`;
     announce(shortcuts);
   };
 

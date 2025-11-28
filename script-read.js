@@ -51,6 +51,11 @@
       const wordCount = extractedText.split(/\s+/).length;
       readFileInfo.textContent = `📄 ${currentFileName} - ${wordCount} words`;
     }
+    // Announce page entry with all available shortcuts for blind users
+    setTimeout(() => {
+      const readPageAnnouncement = `Welcome to the read page. You have loaded your document: ${currentFileName}. Here are your available keyboard shortcuts: Press S to start playing the document, P to pause, T to stop, D to download as MP3, M to view summary, Plus key to increase speed, Minus key to decrease speed, and H to hear these shortcuts again.`;
+      announce(readPageAnnouncement);
+    }, 500);
   });
 
   // TTS Setup
@@ -306,7 +311,7 @@
 
   // Show all available shortcuts on read page
   const showReadPageShortcuts = () => {
-    const shortcuts = `Read Page Shortcuts: S to play or resume, P to pause, T to stop, D to download MP3, M to view summary, Plus and Minus keys for speed, H for help.`;
+    const shortcuts = `Here are all the shortcuts available on the read page. Press S to start or resume playing your document. Press P to pause the reading. Press T to completely stop the reading. Press D to download your document as an MP3 audio file. Press M to view a summary of your document. Use the Plus key to increase reading speed, or the Minus key to decrease reading speed. Press H again to hear these shortcuts again.`;
     announce(shortcuts);
   };
 

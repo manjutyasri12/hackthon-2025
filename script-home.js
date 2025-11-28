@@ -204,14 +204,14 @@
 
   // Help button - show home page shortcuts
   btnHelp?.addEventListener('click', () => {
-    const helpText = `Home Page Shortcuts: U to upload a file, E to extract text, I to identify an image, R to convert speech to braille, H for this help.`;
+    const helpText = `Here are all the shortcuts available on the upload page. Press U to open a file dialog and upload a document. After uploading, press E to extract text from your document. Press I to identify what is in an image. Press R to convert your speech to braille text. Press H to hear these shortcuts again.`;
     announce(helpText);
   });
 
   // Show shortcuts on load
   window.addEventListener('load', () => {
     setTimeout(() => {
-      const loadHelp = `You are on the upload page. Press U to upload a file, E to extract text, I to identify image, R for speech to braille, or H for help.`;
+      const loadHelp = `Welcome to VisualCogn, an accessible document reader designed for visually impaired and cognitive users. You are on the upload page. Here are your available shortcuts: Press U to upload a document file. After uploading, press E to extract text from the document. Press I to identify an image. Press R to convert your spoken voice to braille. Press H to hear all available shortcuts on this page.`;
       announce(loadHelp);
     }, 800);
   });
