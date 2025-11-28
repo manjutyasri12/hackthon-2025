@@ -1,341 +1,267 @@
-// VisualCogn - client-side accessibility helpers
+// VisualCogn - Multi-page Accessible Document Reader
 (() => {
+  // Global state
+  let currentFile = null;
+  let extractedText = '';
+  let summaryArray = [];
+
+  // Announce function
   const announce = (text, priority = 'polite') => {
-    // ARIA live region
     const live = document.getElementById('file-info');
-    if (live) {
-      live.textContent = text;
-    }
-    // Speech (Talkback)
+    if (live) live.textContent = text;
     if ('speechSynthesis' in window) {
       const u = new SpeechSynthesisUtterance(text);
-      const speed = parseFloat(document.getElementById('speed').value) || 1;
-      u.rate = speed;
+      const speedEl = document.getElementById('read-speed') || document.getElementById('speed');
+      if (speedEl) u.rate = parseFloat(speedEl.value) || 1;
       speechSynthesis.cancel();
       speechSynthesis.speak(u);
     }
   };
 
-  // Announce site name and initial instructions on load
+  // Page navigation
+  const showPage = (pageId) => {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const page = document.getElementById(pageId);
+    if (page) {
+      page.classList.add('active');
+      announce(`Now on ${pageId.replace('-page', '').toUpperCase()} page`);
+    }
+  };
+
+  // Text normalization
+  const normalizeText = (raw) => {
+    if (!raw) return '';
+    let t = String(raw);
+    t = t.replace(/\r/g, '\n');
+    t = t.replace(/-\n/g, '');
+    t = t.replace(/\n\s*\n+/g, '__PAR__');
+    t = t.replace(/\n+/g, ' ');
+    t = t.replace(/__PAR__/g, '\n\n');
+    t = t.replace(/ {2,}/g, ' ');
+    return t.trim();
+  };
+
+  // ==================== HOME PAGE ====================
+
+  const fileInput = document.getElementById('file-input');
+  const btnUpload = document.getElementById('btn-upload');
+  const btnExtract = document.getElementById('btn-extract');
+  const btnIdentify = document.getElementById('btn-identify');
+  const btnRecord = document.getElementById('btn-record');
+  const btnHelp = document.getElementById('btn-help');
+  const initialInstruction = document.getElementById('initial-instruction');
+
+  // Initial greeting
   window.addEventListener('load', () => {
-    // slight delay for voices to load
     setTimeout(() => {
-      const greetingText = 'Welcome to VisualCogn, an accessible document reader for visually impaired and cognitive users. To begin, press the letter U to upload a file. You can upload text files, PDF documents, or images.';
-      announce(greetingText);
-      
-      const instructionEl = document.getElementById('initial-instruction');
-      if (instructionEl) {
-        instructionEl.innerHTML = `
+      announce('Welcome to VisualCogn. Press U to upload a file.');
+      if (initialInstruction) {
+        initialInstruction.innerHTML = `
           <strong>🎯 Getting Started:</strong><br>
-          Press the letter <strong>U</strong> on your keyboard to upload a file<br>
-          Or click the Upload button below<br><br>
-          📁 Supported: Text files, PDFs, Images
+          Press <strong>U</strong> to upload a file (text, PDF, or image)<br>
+          Or click the Upload button<br><br>
+          📁 Supported formats: Text, PDF, Images
         `;
-        instructionEl.style.fontSize = '16px';
-        instructionEl.style.padding = '20px';
-        instructionEl.style.backgroundColor = '#e3f2fd';
-        instructionEl.style.borderLeft = '6px solid #0b63ff';
-        instructionEl.style.borderRadius = '10px';
-        instructionEl.style.marginBottom = '20px';
-        instructionEl.style.fontWeight = '500';
-        instructionEl.style.lineHeight = '1.8';
       }
     }, 400);
   });
 
-  // Elements
-  const fileInput = document.getElementById('file-input');
-  const btnUpload = document.getElementById('btn-upload');
-  const btnExtract = document.getElementById('btn-extract');
-  const btnSpeak = document.getElementById('btn-speak');
-  const btnPause = document.getElementById('btn-pause');
-  const btnStop = document.getElementById('btn-stop');
-  const btnDownload = document.getElementById('btn-download');
-  const btnIdentify = document.getElementById('btn-identify');
-  const btnRecord = document.getElementById('btn-record');
-  const btnHelp = document.getElementById('btn-help');
-  const extractedText = document.getElementById('extracted-text');
-  const imagePreview = document.getElementById('image-preview');
-  const brailleOutput = document.getElementById('braille-output');
-  const summaryOutput = document.getElementById('summary-output');
-  const progressEl = document.getElementById('progress');
-  const instructionEl = document.getElementById('initial-instruction');
-
-  let lastFile = null;
-  let lastText = '';
-  // TTS state
-  let ttsQueue = [];
-  let ttsIndex = 0;
-  let ttsPlaying = false;
-  let ttsPaused = false;
-
-  // Normalize extracted text for readability (remove line-break artifacts, hyphenation)
-  function normalizeText(raw) {
-    if (!raw) return '';
-    let t = String(raw);
-    // remove Windows CR
-    t = t.replace(/\r/g, '\n');
-    // fix hyphenation at line breaks: "exam-\nple" -> "example"
-    t = t.replace(/-\n/g, '');
-    // collapse multiple blank lines to a paragraph separator marker
-    t = t.replace(/\n\s*\n+/g, '__PAR__');
-    // replace remaining single newlines with spaces (line wraps)
-    t = t.replace(/\n+/g, ' ');
-    // restore paragraph separators
-    t = t.replace(/__PAR__/g, '\n\n');
-    // collapse multiple spaces
-    t = t.replace(/ {2,}/g, ' ');
-    // trim
-    return t.trim();
-  }
-
+  // Upload handler
   fileInput.addEventListener('change', async (e) => {
     const f = e.target.files[0];
-    lastFile = f;
-    brailleOutput.textContent = '';
-    summaryOutput.textContent = '';
-    imagePreview.innerHTML = '';
-
     if (!f) return;
-    
-    announce(`File ${f.name} selected. Press E to extract text from file.`);
-    
-    // Enable extract button
-    if (btnExtract) btnExtract.disabled = false;
-    
-    // Update instruction
-    if (instructionEl) {
-      instructionEl.innerHTML = `
+
+    currentFile = f;
+    announce(`File ${f.name} selected. Press E to extract text.`);
+
+    if (initialInstruction) {
+      initialInstruction.innerHTML = `
         <strong>✅ File Uploaded!</strong><br>
         File name: <strong>${f.name}</strong><br><br>
-        Press the letter <strong>E</strong> to extract text<br>
-        Or click the Extract Text button
+        Press <strong>E</strong> to extract text
       `;
-      instructionEl.style.backgroundColor = '#e8f5e9';
-      instructionEl.style.borderLeftColor = '#00a36e';
-    }
-    
-    // clear previous progress and extracted text
-    if (progressEl) { progressEl.textContent = ''; progressEl.classList.add('sr-only'); }
-    if (extractedText) extractedText.value = '';
-
-    // show preview for images
-    if (f.type.startsWith('image/')) {
-      const url = URL.createObjectURL(f);
-      const img = document.createElement('img');
-      img.alt = f.name;
-      img.src = url;
-      imagePreview.appendChild(img);
+      initialInstruction.style.backgroundColor = var(--success-light);
+      initialInstruction.style.borderLeftColor = 'var(--success)';
     }
 
-    // immediate read for text files
-    if (f.type === 'text/plain' || f.name.endsWith('.txt')) {
-      const txt = await f.text();
-      const normalized = normalizeText(txt);
-      extractedText.value = normalized;
-      lastText = normalized;
-      // enable read option when a text file is loaded
-      if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
-      if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
-      if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
-      if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
-      announce('Text file loaded. Press S to read aloud.');
-      if (instructionEl) {
-        instructionEl.innerHTML = `
-          <strong>✅ Text File Extracted!</strong><br><br>
-          You can now:<br>
-          <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
-          <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
-        `;
-        instructionEl.style.backgroundColor = '#e8f5e9';
-        instructionEl.style.borderLeftColor = '#00a36e';
-      }
-    }
+    btnExtract.disabled = false;
   });
 
-  // Simple extraction: text files or OCR for images
+  // Extract handler
   btnExtract.addEventListener('click', async () => {
-    if (!lastFile) { announce('No file selected. Use Upload or press U.'); return; }
-    announce('Extracting text now. This may take a few seconds.');
+    if (!currentFile) {
+      announce('No file selected.');
+      return;
+    }
 
-    if (lastFile.type.startsWith('image/')) {
-      try {
-        const { data } = await Tesseract.recognize(lastFile, 'eng');
-        const normalized = normalizeText(data.text || '');
-        extractedText.value = normalized;
-        lastText = normalized;
-        announce('Text extracted from image. Press S to read aloud.');
-        if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
-        if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
-        if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
-        if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
-        makeSummary(lastText);
-        
-        if (instructionEl) {
-          instructionEl.innerHTML = `
-            <strong>✅ Image Text Extracted!</strong><br><br>
-            You can now:<br>
-            <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
-            <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
-          `;
-          instructionEl.style.backgroundColor = '#e8f5e9';
-          instructionEl.style.borderLeftColor = '#00a36e';
-        }
-      } catch (err) {
-        console.error(err);
-        announce('OCR failed.');
-      }
-    } else if (lastFile.type === 'application/pdf' || (lastFile.name && lastFile.name.toLowerCase().endsWith('.pdf'))) {
-      try {
-        announce('Extracting text from PDF. This may take a moment.');
-        const arrayBuffer = await lastFile.arrayBuffer();
-        // pdfjsLib is provided by pdf.js include
+    announce('Extracting text. Please wait.');
+    btnExtract.disabled = true;
+
+    try {
+      if (currentFile.type.startsWith('image/')) {
+        const { data } = await Tesseract.recognize(currentFile, 'eng');
+        extractedText = normalizeText(data.text || '');
+      } else if (currentFile.type === 'application/pdf' || currentFile.name.endsWith('.pdf')) {
+        const arrayBuffer = await currentFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let fullText = '';
+
         for (let p = 1; p <= pdf.numPages; p++) {
-          // eslint-disable-next-line no-await-in-loop
           const page = await pdf.getPage(p);
-          // try to extract text content first
-          // eslint-disable-next-line no-await-in-loop
           const content = await page.getTextContent();
           const strings = content.items.map(i => i.str);
           let pageText = strings.join(' ').trim();
 
-          // If the page has little or no selectable text, render and OCR it
           if (!pageText || pageText.length < 50) {
-            updateProgress(`Page ${p} of ${pdf.numPages}: scanned page detected — running OCR.`);
             try {
               const viewport = page.getViewport({ scale: 2.0 });
               const canvas = document.createElement('canvas');
               canvas.width = Math.floor(viewport.width);
               canvas.height = Math.floor(viewport.height);
               const ctx = canvas.getContext('2d');
-              // eslint-disable-next-line no-await-in-loop
               await page.render({ canvasContext: ctx, viewport }).promise;
 
-              // show a small preview for the first page
-              if (p === 1) {
-                const img = document.createElement('img');
-                img.src = canvas.toDataURL('image/png');
-                img.alt = `PDF page ${p}`;
-                imagePreview.appendChild(img);
-              }
-
-              // run Tesseract on the rendered canvas
-              // eslint-disable-next-line no-await-in-loop
               const { data } = await Tesseract.recognize(canvas, 'eng');
               const ocrText = data && data.text ? data.text : '';
               pageText = (pageText + ' ' + ocrText).trim();
             } catch (err) {
-              console.error('Scanned page OCR failed', err);
+              console.error('OCR failed:', err);
             }
           }
 
           fullText += pageText + '\n';
-          // announce page completion
-          updateProgress(`Completed page ${p} of ${pdf.numPages}.`);
         }
-        const normalized = normalizeText(fullText);
-        extractedText.value = normalized;
-        lastText = normalized;
-        announce('Text extracted from PDF. Read option is now available.');
-        if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
-        if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
-        if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
-        if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
-        makeSummary(lastText);
-        if (progressEl) { progressEl.textContent = 'Extraction complete.'; progressEl.classList.add('sr-only'); }
-        extractedText.focus && extractedText.focus();
-        
-        if (instructionEl) {
-          instructionEl.innerHTML = `
-            <strong>✅ PDF Extracted Successfully!</strong><br><br>
-            You can now:<br>
-            <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
-            <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
-          `;
-          instructionEl.style.backgroundColor = '#e8f5e9';
-          instructionEl.style.borderLeftColor = '#00a36e';
-        }
-      } catch (err) {
-        console.error(err);
-        announce('PDF extraction failed.');
-        if (progressEl) { progressEl.textContent = 'Extraction failed.'; }
+        extractedText = normalizeText(fullText);
+      } else {
+        const txt = await currentFile.text();
+        extractedText = normalizeText(txt);
       }
-    } else {
-      const txt = await lastFile.text();
-      const normalized = normalizeText(txt);
-      extractedText.value = normalized;
-      lastText = normalized;
-      announce('Text extracted from file. Read option is now available.');
-      if (typeof btnSpeak !== 'undefined' && btnSpeak) btnSpeak.disabled = false;
-      if (typeof btnDownload !== 'undefined' && btnDownload) btnDownload.disabled = false;
-      if (typeof btnIdentify !== 'undefined' && btnIdentify) btnIdentify.disabled = false;
-      if (typeof btnRecord !== 'undefined' && btnRecord) btnRecord.disabled = false;
-      makeSummary(lastText);
-      
-      if (instructionEl) {
-        instructionEl.innerHTML = `
-          <strong>✅ Text Extracted!</strong><br><br>
-          You can now:<br>
-          <strong>S</strong> - Read aloud | <strong>P</strong> - Pause | <strong>T</strong> - Stop<br>
-          <strong>D</strong> - Download MP3 | <strong>I</strong> - Identify Images | <strong>R</strong> - Speech to Braille
-        `;
-        instructionEl.style.backgroundColor = '#e8f5e9';
-        instructionEl.style.borderLeftColor = '#00a36e';
-      }
+
+      // Generate summary
+      summaryArray = summarizeText(extractedText, 5);
+
+      // Go to read page
+      announce('Text extracted successfully. Going to read page.');
+      showReadPage();
+
+    } catch (err) {
+      console.error('Extraction error:', err);
+      announce('Extraction failed. Please try again.');
+      btnExtract.disabled = false;
     }
   });
 
-  // Read aloud
-  btnSpeak.addEventListener('click', () => {
-    const text = extractedText.value || lastText;
-    if (!text) { announce('No text available. Please extract text first.'); return; }
-    
-    // If paused, resume instead of restarting
-    if (ttsPaused && ttsPlaying) {
-      btnPause.click();
+  // Image identification
+  let classifier = null;
+  ml5.imageClassifier('MobileNet').then(c => { classifier = c; });
+
+  btnIdentify.addEventListener('click', async () => {
+    if (!currentFile || !currentFile.type.startsWith('image/')) {
+      announce('Please upload an image first.');
       return;
     }
-    
-    startTTS(text);
+    announce('Identifying image. Please wait.');
+    // Create temporary image
+    const url = URL.createObjectURL(currentFile);
+    const img = document.createElement('img');
+    img.src = url;
+    img.onload = async () => {
+      if (!classifier) {
+        announce('Model is loading. Try again soon.');
+        return;
+      }
+      const results = await classifier.classify(img);
+      const top = results?.[0]?.label || 'unknown';
+      announce(`I think this is a ${top}.`);
+      URL.revokeObjectURL(url);
+    };
   });
 
-  // Pause control
-  btnPause && btnPause.addEventListener('click', () => {
-    if (!ttsPlaying) return;
-    if (!ttsPaused) {
-      // Pause: stop speech synthesis and set flag
-      speechSynthesis.pause();
-      ttsPaused = true;
-      announce('Paused reading.');
-      btnPause.classList.add('active');
-      btnSpeak.textContent = 'Resume';
-      btnSpeak.querySelector('.label').textContent = 'Resume (S)';
-    } else {
-      // Resume: continue playing from where we left off
-      speechSynthesis.resume();
-      ttsPaused = false;
-      announce('Resumed reading.');
-      btnPause.classList.remove('active');
-      btnSpeak.textContent = 'Play';
-      btnSpeak.querySelector('.label').textContent = 'Play (S)';
+  // Speech to Braille
+  const brailleMap = {
+    a:'⠁',b:'⠃',c:'⠉',d:'⠙',e:'⠑',f:'⠋',g:'⠛',h:'⠓',i:'⠊',j:'⠚',
+    k:'⠅',l:'⠇',m:'⠍',n:'⠝',o:'⠕',p:'⠏',q:'⠟',r:'⠗',s:'⠎',t:'⠞',
+    u:'⠥',v:'⠧',w:'⠺',x:'⠭',y:'⠽',z:'⠵',' ':' '
+  };
+
+  const toBraille = (txt) => {
+    return txt.toLowerCase().split('').map(ch => brailleMap[ch] || ch).join('');
+  };
+
+  btnRecord.addEventListener('click', async () => {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      announce('Speech recognition not supported.');
+      return;
     }
+
+    const rec = new SpeechRec();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    announce('Recording. Please speak now.');
+    rec.start();
+
+    rec.onresult = (ev) => {
+      const text = ev.results[0][0].transcript;
+      announce(`You said: ${text}`);
+      const braille = toBraille(text);
+      alert(`Braille: ${braille}`);
+    };
+
+    rec.onerror = (e) => {
+      console.error(e);
+      announce('Recording error');
+    };
   });
 
-  // Stop control
-  btnStop && btnStop.addEventListener('click', () => {
+  // Help
+  btnHelp.addEventListener('click', () => {
+    const helpText = `VisualCogn Help:
+1. Upload a file (text, PDF, image)
+2. Extract text
+3. Read aloud or view summary
+4. Shortcuts: U=Upload, E=Extract, S=Play, P=Pause, T=Stop, D=Download, M=Summary`;
+    announce(helpText);
+    alert(helpText);
+  });
+
+  // ==================== READ PAGE ====================
+
+  const showReadPage = () => {
+    const readText = document.getElementById('read-text');
+    const readFileInfo = document.getElementById('read-file-info');
+
+    if (readText) readText.value = extractedText;
+    if (readFileInfo) {
+      readFileInfo.textContent = `📄 ${currentFile.name} - ${extractedText.split(/\s+/).length} words`;
+    }
+
+    showPage('read-page');
+  };
+
+  const btnBackRead = document.getElementById('btn-back-read');
+  btnBackRead?.addEventListener('click', () => {
     stopTTS();
+    showPage('home-page');
   });
 
-  function enableTTSControls(enabled) {
-    if (btnSpeak) btnSpeak.disabled = !enabled;
-    if (btnPause) btnPause.disabled = !enabled;
-    if (btnStop) btnStop.disabled = !enabled;
-  }
+  // TTS Controls
+  let ttsQueue = [];
+  let ttsIndex = 0;
+  let ttsPlaying = false;
+  let ttsPaused = false;
 
-  function splitToChunks(text, maxLen = 1400) {
-    // split into sentences then assemble into chunks under maxLen
+  const btnPlay = document.getElementById('btn-play');
+  const btnPause = document.getElementById('btn-pause');
+  const btnStop = document.getElementById('btn-stop');
+  const btnDownloadMP3 = document.getElementById('btn-download-mp3');
+  const btnViewSummary = document.getElementById('btn-view-summary');
+  const readSpeed = document.getElementById('read-speed');
+  const readSpeedDecrease = document.getElementById('read-speed-decrease');
+  const readSpeedIncrease = document.getElementById('read-speed-increase');
+  const readSpeedDisplay = document.getElementById('read-speed-display');
+
+  const splitToChunks = (text, maxLen = 1400) => {
     const sents = text.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [text];
     const chunks = [];
     let cur = '';
@@ -349,338 +275,255 @@
     }
     if (cur.trim()) chunks.push(cur.trim());
     return chunks;
-  }
+  };
 
-  function startTTS(text) {
-    if (!('speechSynthesis' in window)) { announce('Speech not supported in this browser.'); return; }
-    // stop any existing TTS
+  const startTTS = (text) => {
+    if (!('speechSynthesis' in window)) {
+      announce('Speech not supported.');
+      return;
+    }
     stopTTS();
     ttsQueue = splitToChunks(text);
     ttsIndex = 0;
     ttsPlaying = true;
     ttsPaused = false;
     enableTTSControls(true);
-    announce('Starting reading.');
+    announce('Starting to read.');
     playNextChunk();
-  }
+  };
 
-  function playNextChunk() {
+  const playNextChunk = () => {
     if (!ttsPlaying) return;
     if (ttsIndex >= ttsQueue.length) {
-      // finished
       ttsPlaying = false;
       enableTTSControls(false);
       announce('Finished reading.');
       return;
     }
+
     const chunk = ttsQueue[ttsIndex];
     const u = new SpeechSynthesisUtterance(chunk);
-    u.rate = parseFloat(document.getElementById('speed').value) || 1;
+    u.rate = parseFloat(readSpeed?.value) || 1;
     u.onend = () => {
-      ttsIndex += 1;
-      // small delay to allow pause/resume
-      setTimeout(() => { if (!ttsPaused) playNextChunk(); }, 50);
+      ttsIndex++;
+      setTimeout(() => { if (!ttsPaused && ttsPlaying) playNextChunk(); }, 50);
     };
-    u.onerror = (e) => { console.error('TTS error', e); ttsPlaying = false; enableTTSControls(false); };
+    u.onerror = () => {
+      ttsPlaying = false;
+      enableTTSControls(false);
+    };
     speechSynthesis.speak(u);
-  }
+  };
 
-  function stopTTS() {
+  const stopTTS = () => {
     speechSynthesis.cancel();
     ttsPlaying = false;
     ttsPaused = false;
     ttsQueue = [];
     ttsIndex = 0;
     enableTTSControls(false);
-    announce('Stopped reading.');
-    if (btnPause) btnPause.classList.remove('active');
-  }
+  };
+
+  const enableTTSControls = (enabled) => {
+    if (btnPause) btnPause.disabled = !enabled;
+    if (btnStop) btnStop.disabled = !enabled;
+  };
+
+  btnPlay?.addEventListener('click', () => {
+    if (ttsPaused) {
+      speechSynthesis.resume();
+      ttsPaused = false;
+      announce('Resumed');
+      btnPause.textContent = 'Pause';
+    } else {
+      startTTS(extractedText);
+    }
+  });
+
+  btnPause?.addEventListener('click', () => {
+    if (ttsPlaying) {
+      speechSynthesis.pause();
+      ttsPaused = true;
+      announce('Paused');
+    }
+  });
+
+  btnStop?.addEventListener('click', () => {
+    stopTTS();
+    announce('Stopped');
+  });
 
   // Speed controls
-  document.getElementById('speed-decrease').addEventListener('click', () => changeSpeed(-0.5));
-  document.getElementById('speed-increase').addEventListener('click', () => changeSpeed(0.5));
-  function changeSpeed(delta){
-    const inp = document.getElementById('speed');
-    let v = parseFloat(inp.value) || 1;
-    v = Math.min(2, Math.max(0.5, v + delta));
-    inp.value = v.toFixed(1);
-    announce(`Speech speed set to ${v}x.`);
-  }
+  readSpeedDecrease?.addEventListener('click', () => {
+    const v = Math.max(0.5, parseFloat(readSpeed?.value || 1) - 0.5);
+    if (readSpeed) readSpeed.value = v;
+    if (readSpeedDisplay) readSpeedDisplay.textContent = v.toFixed(1) + 'x';
+    announce(`Speed ${v}x`);
+  });
 
-  // Download audio: convert text to MP3 using Web Speech API + lamejs
-  btnDownload.addEventListener('click', async () => {
-    const text = extractedText.value || lastText;
-    if (!text) { announce('No text to convert to audio.'); return; }
-    
-    announce('Generating MP3 from text. This may take a moment.');
-    
+  readSpeedIncrease?.addEventListener('click', () => {
+    const v = Math.min(2, parseFloat(readSpeed?.value || 1) + 0.5);
+    if (readSpeed) readSpeed.value = v;
+    if (readSpeedDisplay) readSpeedDisplay.textContent = v.toFixed(1) + 'x';
+    announce(`Speed ${v}x`);
+  });
+
+  readSpeed?.addEventListener('change', () => {
+    const v = parseFloat(readSpeed.value) || 1;
+    if (readSpeedDisplay) readSpeedDisplay.textContent = v.toFixed(1) + 'x';
+  });
+
+  // Download MP3
+  btnDownloadMP3?.addEventListener('click', async () => {
+    announce('Generating MP3. Please wait.');
     try {
-      // Step 1: Record audio from Web Speech API using MediaRecorder
-      const utterances = splitToChunks(text);
-      const audioChunks = [];
-      
-      // Create audio context
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const u = new SpeechSynthesisUtterance(extractedText);
+      u.rate = parseFloat(readSpeed?.value) || 1;
+
       const mediaStreamAudioDestinationNode = audioContext.createMediaStreamAudioDestination();
-      
-      // Redirect speech synthesis to media stream
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = parseFloat(document.getElementById('speed').value) || 1;
-      
-      // Create media recorder
       const mediaRecorder = new MediaRecorder(mediaStreamAudioDestinationNode.stream);
-      
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
-      };
-      
+      const audioChunks = [];
+
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+
       mediaRecorder.onstop = async () => {
         try {
           const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-          
-          // Convert WAV to MP3 using lamejs
           const arrayBuffer = await audioBlob.arrayBuffer();
-          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-          
-          // Get raw PCM data
-          const rawData = audioBuffer.getChannelData(0);
-          const mp3Encoder = new lamejs.Mp3Encoder(1, audioBuffer.sampleRate, 128);
-          
+          const decodedAudio = await audioContext.decodeAudioData(arrayBuffer);
+
+          const rawData = decodedAudio.getChannelData(0);
+          const mp3Encoder = new lamejs.Mp3Encoder(1, decodedAudio.sampleRate, 128);
           const mp3Data = [];
-          const samples = 1152; // lamejs samples per frame
-          
-          for (let i = 0; i < rawData.length; i += samples) {
-            const sampleChunk = rawData.slice(i, i + samples);
+
+          for (let i = 0; i < rawData.length; i += 1152) {
+            const sampleChunk = rawData.slice(i, i + 1152);
             const encoded = mp3Encoder.encodeBuffer(sampleChunk);
-            if (encoded.length > 0) {
-              mp3Data.push(encoded);
-            }
+            if (encoded.length > 0) mp3Data.push(encoded);
           }
-          
+
           const finalBuffer = mp3Encoder.flush();
-          if (finalBuffer.length > 0) {
-            mp3Data.push(finalBuffer);
-          }
-          
+          if (finalBuffer.length > 0) mp3Data.push(finalBuffer);
+
           const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
-          const mp3Url = URL.createObjectURL(mp3Blob);
-          
+          const url = URL.createObjectURL(mp3Blob);
           const link = document.createElement('a');
-          link.href = mp3Url;
+          link.href = url;
           link.download = 'visualcogn_audio.mp3';
           link.click();
-          
-          URL.revokeObjectURL(mp3Url);
-          announce('MP3 file downloaded successfully.');
+          URL.revokeObjectURL(url);
+
+          announce('MP3 downloaded successfully');
         } catch (err) {
-          console.error('MP3 encoding error:', err);
-          announce('MP3 encoding failed. Downloading as text instead.');
-          downloadAsText(text);
+          console.error('MP3 error:', err);
+          announce('MP3 generation failed');
+          downloadAsText(extractedText);
         }
       };
-      
+
       mediaRecorder.start();
-      
-      // Speak the text
-      speechSynthesis.speak(utterance);
-      
-      // Stop recording when speech ends
-      utterance.onend = () => {
-        mediaRecorder.stop();
-      };
-      
+      speechSynthesis.speak(u);
+      u.onend = () => mediaRecorder.stop();
+
     } catch (err) {
-      console.error('Audio generation error:', err);
-      announce('Audio generation failed. Trying fallback method.');
-      downloadAsText(text);
+      console.error('Audio error:', err);
+      downloadAsText(extractedText);
     }
   });
 
-  // Fallback: download as text file
-  function downloadAsText(text) {
-    const txtBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(txtBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'visualcogn_text.txt';
-    a.click();
+  const downloadAsText = (text) => {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'visualcogn_text.txt';
+    link.click();
     URL.revokeObjectURL(url);
-    announce('Text file downloaded. Please use an online TTS service to convert to MP3.');
-  }
-
-  // Helpers for audio encoding (no longer needed - removed for simplicity)
-
-
-  // Image identification using ml5 MobileNet
-  let classifier = null;
-  ml5.imageClassifier('MobileNet').then(c => { classifier = c; });
-
-  // Progress helper (visible to screen readers)
-  function updateProgress(msg) {
-    if (progressEl) {
-      progressEl.textContent = msg;
-      progressEl.classList.remove('sr-only');
-    }
-    try { announce(msg); } catch (e) { /* ignore */ }
-  }
-
-  btnIdentify.addEventListener('click', async () => {
-    if (!lastFile || !lastFile.type.startsWith('image/')) { announce('Please upload an image first.'); return; }
-    announce('Identifying image.');
-    const img = imagePreview.querySelector('img');
-    if (!img) { announce('No image to identify.'); return; }
-    if (!classifier) { announce('Image model is loading — try again soon.'); return; }
-    const results = await classifier.classify(img);
-    const top = results && results[0] ? results[0].label : 'unknown';
-    announce(`I think this is ${top}.`);
-  });
-
-  // Speech -> Braille (simple speech recognition to text, then map to Braille Unicode)
-  btnRecord.addEventListener('click', async () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      announce('Speech recognition not supported in this browser.');
-      return;
-    }
-    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const rec = new SpeechRec();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    announce('Recording. Please speak now.');
-    rec.start();
-    rec.onresult = (ev) => {
-      const text = ev.results[0][0].transcript;
-      announce(`You said: ${text}`);
-      const braille = toBraille(text);
-      brailleOutput.textContent = 'Braille: ' + braille;
-    };
-    rec.onerror = (e) => { console.error(e); announce('Recording error'); };
-  });
-
-  // Help / Shortcuts
-  btnHelp.addEventListener('click', () => showHelp());
-
-  function showHelp() {
-    const helpText = `VisualCogn Quick Guide:
-    
-1. UPLOAD & EXTRACT:
-   - Press U: Upload a file (text, PDF, or image)
-   - Press E: Extract text from file
-
-2. READ ALOUD:
-   - Press S: Play - Start reading text aloud
-   - Press P: Pause - Pause reading. Press S again to resume
-   - Press T: Stop - Stop reading completely
-
-3. DOWNLOAD:
-   - Press D: Download extracted text as MP3 audio file
-
-4. ADVANCED:
-   - Press I: Identify Image - Describe what's in an image
-   - Press R: Record speech and convert to Braille
-   - Press +/-: Adjust speech speed (slower to faster)
-   - Press 1, 2, 3: Set speed to 1x, 1.5x, 2x
-
-This tool is designed for visually impaired and cognitive users.
-All features work with keyboard shortcuts or mouse clicks.`;
-    
-    announce(helpText);
-    alert(helpText);
-  }
-
-  // Keyboard shortcuts
-  window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    const k = e.key.toLowerCase();
-    if (k === 'u') { document.getElementById('btn-upload').focus(); fileInput.click(); }
-    if (k === 'e') btnExtract.click();
-    if (k === 's') {
-      if (btnSpeak && btnSpeak.disabled) {
-        announce('No extracted text to read. Press E to extract text first.');
-      } else {
-        btnSpeak.click();
-      }
-    }
-    if (k === 'd') btnDownload.click();
-    if (k === 'i') btnIdentify.click();
-    if (k === 'r') btnRecord.click();
-    if (k === 'p') {
-      // pause / resume
-      if (btnPause && !btnPause.disabled) btnPause.click();
-    }
-    if (k === 't') {
-      if (btnStop && !btnStop.disabled) btnStop.click();
-    }
-    if (k === 'h') btnHelp.click();
-    if (k === '+') changeSpeed(0.5);
-    if (k === '-') changeSpeed(-0.5);
-    // numeric speed keys: 1 -> 1.0, 2 -> 1.5, 3 -> 2.0
-    if (k === '1') { document.getElementById('speed').value = '1'; announce('Speed 1x'); }
-    if (k === '2') { document.getElementById('speed').value = '1.5'; announce('Speed 1.5x'); }
-    if (k === '3') { document.getElementById('speed').value = '2'; announce('Speed 2x'); }
-  });
-
-  // Braille mapping (basic a-z mapping to Unicode braille patterns)
-  const brailleMap = {
-    a:'⠁',b:'⠃',c:'⠉',d:'⠙',e:'⠑',f:'⠋',g:'⠛',h:'⠓',i:'⠊',j:'⠚',
-    k:'⠅',l:'⠇',m:'⠍',n:'⠝',o:'⠕',p:'⠏',q:'⠟',r:'⠗',s:'⠎',t:'⠞',
-    u:'⠥',v:'⠧',w:'⠺',x:'⠭',y:'⠽',z:'⠵', ' ':' '
   };
-  function toBraille(txt){
-    return txt.toLowerCase().split('').map(ch => brailleMap[ch] || ch).join('');
-  }
 
-  // Simple cognitive summary: pick the first 2-3 sentences
-  // Improved extractive summarizer and summary table
-  function makeSummary(text){
-    if (!text) return;
-    const summary = summarizeText(text, 5);
-    summaryOutput.textContent = summary.join(' ');
-    renderSummaryTable(text, summary);
-  }
+  // Summary button
+  btnViewSummary?.addEventListener('click', () => {
+    showSummaryPage();
+  });
 
-  function summarizeText(text, maxSentences = 5){
-    // Basic extractive summarization using term frequency scoring
+  // ==================== SUMMARY PAGE ====================
+
+  const showSummaryPage = () => {
+    const words = extractedText.split(/\s+/).length;
+    const sentences = extractedText.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g)?.length || 0;
+    const readingTime = Math.max(1, Math.round((words / 180) * 10) / 10);
+
+    document.getElementById('stat-words').textContent = words;
+    document.getElementById('stat-sentences').textContent = sentences;
+    document.getElementById('stat-reading-time').textContent = `${readingTime} min`;
+    document.getElementById('stat-key-points').textContent = summaryArray.length;
+    document.getElementById('summary-full-text').value = extractedText;
+
+    const summaryList = document.getElementById('summary-list');
+    if (summaryList) {
+      summaryList.innerHTML = summaryArray.map((s, i) => `
+        <div class="summary-item">
+          <span class="summary-item-number">${i + 1}</span>
+          <span class="summary-item-text">${s}</span>
+        </div>
+      `).join('');
+    }
+
+    showPage('summary-page');
+    announce(`Summary page showing ${summaryArray.length} key points`);
+  };
+
+  const btnBackSummary = document.getElementById('btn-back-summary');
+  btnBackSummary?.addEventListener('click', () => {
+    showPage('read-page');
+  });
+
+  // ==================== SUMMARIZATION ====================
+
+  const summarizeText = (text, maxSentences = 5) => {
     const lower = text.replace(/\s+/g, ' ').trim();
     const sents = lower.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [lower];
-    const words = lower.toLowerCase().match(/\b[\w']+\b/g) || [];
+    const words = lower.match(/\b[\w']+\b/g) || [];
     const stop = new Set(['the','and','to','of','a','in','is','it','that','for','on','with','as','are','this','be','by','an','or','from','at','was','which']);
     const freq = {};
+
     for (const w of words) {
-      if (stop.has(w)) continue;
-      freq[w] = (freq[w] || 0) + 1;
+      if (!stop.has(w)) freq[w] = (freq[w] || 0) + 1;
     }
 
     const scores = sents.map(s => {
-      const ws = s.toLowerCase().match(/\b[\w']+\b/g) || [];
+      const ws = s.match(/\b[\w']+\b/g) || [];
       let score = 0;
       for (const w of ws) if (freq[w]) score += freq[w];
       return { s: s.trim(), score };
     });
 
     scores.sort((a,b) => b.score - a.score);
-    const top = scores.slice(0, Math.min(maxSentences, scores.length)).sort((a,b) => lower.indexOf(a.s) - lower.indexOf(b.s));
+    const top = scores.slice(0, Math.min(maxSentences, scores.length))
+      .sort((a,b) => lower.indexOf(a.s) - lower.indexOf(b.s));
     return top.map(t => capitalize(t.s));
-  }
+  };
 
-  function capitalize(str){ return str.charAt(0).toUpperCase() + str.slice(1); }
+  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
-  function renderSummaryTable(originalText, summaryArray){
-    const table = document.getElementById('summary-table');
-    if (!table) return;
-    const words = originalText.match(/\b[\w']+\b/g) || [];
-    const wordCount = words.length;
-    const sentences = originalText.match(/[^\.\!\?]+[\.\!\?]+|[^\.\!\?]+$/g) || [];
-    const readingMinutes = Math.max(1, Math.round((wordCount / 180) * 10) / 10);
+  // ==================== KEYBOARD SHORTCUTS ====================
 
-    table.innerHTML = `
-      <h3>Summary (extractive)</h3>
-      <div><strong>Words:</strong> ${wordCount} &nbsp; <strong>Sentences:</strong> ${sentences.length} &nbsp; <strong>Estimated reading (min):</strong> ${readingMinutes}</div>
-      <ol>
-        ${summaryArray.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
-      </ol>
-    `;
-  }
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'TEXTAREA') return;
+    const k = e.key.toLowerCase();
 
-  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
+    if (k === 'u') fileInput?.click();
+    if (k === 'e') btnExtract?.click();
+    if (k === 's') btnPlay?.click();
+    if (k === 'p') btnPause?.click();
+    if (k === 't') btnStop?.click();
+    if (k === 'd') btnDownloadMP3?.click();
+    if (k === 'i') btnIdentify?.click();
+    if (k === 'r') btnRecord?.click();
+    if (k === 'm') btnViewSummary?.click();
+    if (k === 'h') btnHelp?.click();
+    if (k === '+') readSpeedIncrease?.click();
+    if (k === '-') readSpeedDecrease?.click();
+  });
 })();
